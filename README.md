@@ -83,7 +83,7 @@ pdflatex JSM_2026_Manuscript.tex
 
 ## Presentations
 
-This work was presented at:
+This work will be presented at:
 
 - **JSM 2026** — Session: AI, Machine Learning & Digital Tools in Clinical Development (August 3, 2026)
 - **RISW 2026** — Panel: Regulatory Innovation in Adaptive & Bayesian Trial Design (August 2026)
@@ -97,7 +97,7 @@ This work was presented at:
                for Adaptive and Bayesian Clinical Trial Design},
   booktitle = {Proceedings of the Joint Statistical Meetings},
   year      = {2026},
-  address   = {Nashville, TN},
+  address   = {Boston, MA},
   url       = {https://github.com/evidenceinthewild/Composed-Adaptive-Trial-Validation}
 }
 ```
