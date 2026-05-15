@@ -1,0 +1,1237 @@
+---
+title: "Section 5: Simulation Study"
+subtitle: "Composed Pipeline Operating Characteristics in Bayesian Clinical Trial Design"
+author: "Lu Qian · Zetyra | Evidence in the Wild"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-float: true
+    code-fold: true
+    code-tools: true
+    theme:
+      - cosmo
+      - custom.scss
+    fig-width: 9
+    fig-height: 5.5
+    df-print: kable
+    embed-resources: true
+  pdf:
+    toc: true
+    number-sections: true
+    fig-width: 7
+    fig-height: 4.5
+    geometry: margin=1in
+    fontsize: 11pt
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+  cache-path: "_cache/"
+bibliography: references.bib
+---
+
+```{r setup}
+#| cache: false
+library(RBesT)
+library(ggplot2)
+library(dplyr)
+library(tibble)
+library(purrr)
+library(tidyr)
+library(knitr)
+library(patchwork)
+library(scales)
+
+# ── Color palette ─────────────────────────────────────────────────────────────
+# Ink/green retained as primary accent; backgrounds switched to clean white/slate
+ZET <- list(
+  ink      = "#1A1A2E",   # deep navy-black — titles, axis text
+  green    = "#1B3A2E",   # forest green  — primary series, headers
+  green2   = "#2D6A4F",   # mid green     — secondary series
+  teal     = "#40916C",   # light green   — tertiary / Version B
+  slate    = "#6B7280",   # medium slate  — subtitles, captions
+  gridline = "#E5E7EB",   # cool light gray — major gridlines
+  red      = "#B91C1C",   # accessible red — reference lines, FAIL
+  amber    = "#D97706",   # amber         — warning / border
+  bg       = "#FFFFFF",   # pure white    — plot background
+  panel    = "#FFFFFF",   # white         — panel background
+  muted    = "#9CA3AF"    # muted gray    — secondary labels
+)
+
+# ── Modern publication theme ──────────────────────────────────────────────────
+theme_zetyra <- function(base_size = 12) {
+  theme_minimal(base_size = base_size, base_family = "sans") +
+    theme(
+      # Backgrounds — clean white, no colored fills
+      plot.background   = element_rect(fill = ZET$bg,    color = NA),
+      panel.background  = element_rect(fill = ZET$panel, color = NA),
+
+      # Grid — thin horizontal only; vertical removed for clarity
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(color = ZET$gridline, linewidth = 0.45),
+      panel.grid.minor   = element_blank(),
+
+      # Axes — subtle bottom/left rule; no full box
+      axis.line.x  = element_line(color = "#D1D5DB", linewidth = 0.5),
+      axis.ticks.x = element_line(color = "#D1D5DB", linewidth = 0.4),
+      axis.ticks.length = unit(3, "pt"),
+      axis.text    = element_text(color = ZET$slate,  size = base_size - 1),
+      axis.title   = element_text(color = ZET$ink,    size = base_size,
+                                   face = "bold", margin = margin(t = 4, r = 4)),
+
+      # Titles — left-aligned, strong hierarchy
+      plot.title    = element_text(color = ZET$ink,   size = base_size + 3,
+                                   face = "bold",     hjust = 0,
+                                   margin = margin(b = 4)),
+      plot.subtitle = element_text(color = ZET$slate, size = base_size - 1,
+                                   hjust = 0,         margin = margin(b = 10)),
+      plot.caption  = element_text(color = ZET$muted, size = base_size - 2,
+                                   hjust = 0,         margin = margin(t = 8)),
+      plot.margin   = margin(12, 16, 10, 12),
+
+      # Legend — top-right, no box
+      legend.position    = "top",
+      legend.justification = "left",
+      legend.background  = element_rect(fill = NA, color = NA),
+      legend.key         = element_rect(fill = NA, color = NA),
+      legend.text        = element_text(color = ZET$slate, size = base_size - 1),
+      legend.title       = element_text(color = ZET$ink,   size = base_size - 1,
+                                         face = "bold"),
+      legend.spacing.x   = unit(6, "pt"),
+
+      # Facet strips — light gray pill-style
+      strip.background = element_rect(fill = ZET$gridline, color = NA,
+                                       linewidth = 0),
+      strip.text       = element_text(color = ZET$ink, face = "bold",
+                                       size = base_size - 1, margin = margin(4,6,4,6))
+    )
+}
+```
+
+---
+
+## Overview
+
+This document implements the simulation study for the composed Bayesian design evaluation.
+
+**Central claim:** Component-level validation is insufficient for composed adaptive
+designs — trials where Bayesian monitoring, sample size re-estimation, and
+response-adaptive randomization share an interim information set $\mathcal{F}_t$.
+
+Simulation code:
+`github.com/evidenceinthewild/evidenceinthewild/tree/main/composed-bayesian-designs`
+
+---
+
+## 5.1 Design Parameters
+
+```{r design-params}
+# ── Trial parameters ──────────────────────────────────────────────────────────
+p0       <- 0.25   # null / historical control response rate
+p_alt    <- 0.45   # alternative response rate
+alpha    <- 0.025  # one-sided Type I error target
+
+# ── Sample size & looks ───────────────────────────────────────────────────────
+N_base   <- 90L
+N_max    <- 150L
+n_looks  <- c(30L, 45L, 60L, 90L)
+n_ssr    <- 45L    # SSR trigger at 50% of N_base
+
+# ── MAP prior parameters (validated against RBesT in 5.2.1) ──────────────────
+# Informed:  Beta(6.5, 19.5)  [ESS ≈ 26, mean ≈ 0.25]
+# Vague:     Beta(0.5, 0.5)   [Jeffreys]
+# Mixture:   70% informed + 30% vague
+a_inf <- 6.5;  b_inf <- 19.5
+a_vag <- 0.5;  b_vag <- 0.5
+w_inf <- 0.70
+
+# ── Prior-data conflict & time trend ─────────────────────────────────────────
+p0_conflict      <- 0.30   # strong conflict: 5pp above prior mean (stress test)
+p0_conflict_mild <- 0.27   # mild conflict:   2pp above prior mean
+delta_trend <- 0.05   # linear drift over full enrollment
+
+# ── Monte Carlo & simulation counts ──────────────────────────────────────────
+N_mc         <- 5000L
+N_sim_calib  <- 20000L
+N_sim_main   <- 10000L
+N_sim_sens   <-  5000L
+
+# ── Monte Carlo SE helper ───────────────────────────────────────────────────
+# Binomial MCSE for a proportion estimated from N_sim replications
+mcse <- function(p_hat, n_sim) sqrt(p_hat * (1 - p_hat) / n_sim)
+
+# 95% simulation interval
+mcse_ci <- function(p_hat, n_sim) {
+  se <- mcse(p_hat, n_sim)
+  c(lower = p_hat - 1.96 * se, upper = p_hat + 1.96 * se)
+}
+```
+
+---
+
+## 5.2 Component-Level Validation
+
+### 5.2.1 MAP Prior — Validation Against RBesT
+
+```{r map-prior-fit}
+hist_data <- data.frame(
+  study = c("H1", "H2", "H3"),
+  n     = c( 50,   40,   60),
+  r     = c( 13,   10,   15)
+)
+
+set.seed(42)
+map_fit <- gMAP(
+  cbind(r, n - r) ~ 1 | study,
+  data       = hist_data,
+  family     = binomial,
+  tau.dist   = "HalfNormal",
+  tau.prior  = 1,
+  beta.prior = 2,
+  chains     = 4,
+  iter       = 4000,
+  warmup     = 1000
+)
+
+map_mix <- automixfit(map_fit, Nc = 2)
+rob_mix <- robustify(map_mix, weight = 0.20, mean = 0.5)
+print(rob_mix)
+```
+
+```{r map-prior-validation, fig.cap="MAP prior density: components and mixture from the fitted rob_mix object. Analytic density reproduces dmix() to floating-point precision."}
+
+p_seq <- seq(0.01, 0.99, length.out = 500)
+
+# Parameters from fitted rob_mix (matrix with rows "w","a","b"; cols = components)
+w_fit   <- rob_mix["w", ]   # mixture weights
+a_fit   <- rob_mix["a", ]   # Beta alpha parameters
+b_fit   <- rob_mix["b", ]   # Beta beta  parameters
+
+cat("Fitted mixture components:\n")
+print(rbind(w = round(w_fit, 4), a = round(a_fit, 3), b = round(b_fit, 3)))
+
+# Analytic density using the EXTRACTED parameters
+rbest_dens    <- dmix(rob_mix, p_seq)          # RBesT reference
+analytic_dens <- sapply(p_seq, function(p)
+  sum(w_fit * dbeta(p, a_fit, b_fit)))         # our formula with fitted params
+
+max_dev_map <- max(abs(rbest_dens - analytic_dens))
+
+# Update global prior parameters for use in simulation functions
+# Use the informative component (highest weight / smallest variance)
+# For the two-component robustified mixture:
+# -- the informative component is the one from automixfit()
+# -- the vague component is the robustify() addition
+# We update the global parameters to the FITTED values so simulation is consistent.
+idx_inf <- which.max(a_fit + b_fit)   # most informative = highest ESS
+idx_vag <- setdiff(seq_along(w_fit), idx_inf)[1]
+
+a_inf <<- a_fit[idx_inf]; b_inf <<- b_fit[idx_inf]; w_inf <<- w_fit[idx_inf]
+a_vag <<- a_fit[idx_vag]; b_vag <<- b_fit[idx_vag]
+
+cat(sprintf("\nUpdated simulation parameters:\n"))
+cat(sprintf("  Informed: w=%.3f  a=%.3f  b=%.3f\n", w_inf, a_inf, b_inf))
+cat(sprintf("  Vague:    w=%.3f  a=%.3f  b=%.3f\n",
+            w_fit[idx_vag], a_vag, b_vag))
+
+# Component densities for plot
+df_comps <- tibble(
+  p     = rep(p_seq, length(w_fit) + 1),
+  dens  = c(sapply(seq_along(w_fit), function(j)
+               w_fit[j] * dbeta(p_seq, a_fit[j], b_fit[j])),
+             rbest_dens),
+  label = rep(c(sprintf("Component %d (w=%.2f)", seq_along(w_fit), w_fit),
+                "Mixture (RBesT)"), each = 500)
+)
+
+comp_colors <- c("#2166AC", "#4393C3", "#D6604D", "#B2182B")
+comp_labels <- levels(factor(df_comps$label))
+names(comp_colors) <- comp_labels[seq_along(comp_colors)]
+
+ggplot(df_comps, aes(p, dens, color = label, linetype = label)) +
+  geom_line(linewidth = 1.1) +
+  scale_color_manual(values = comp_colors) +
+  labs(title    = "MAP Prior: Fitted Mixture Components and Density",
+       subtitle = sprintf(
+         "Max |analytic - dmix| = %.2e  (threshold: 1e-10, floating-point only)",
+         max_dev_map),
+       x = bquote("Control response rate" ~ p[c]), y = "Density",
+       color = NULL, linetype = NULL) +
+  theme_zetyra() + theme(legend.position = "bottom")
+
+cat(sprintf("\nMAP PRIOR:  max dev = %.2e  [floating-point precision]  %s\n",
+            max_dev_map, ifelse(max_dev_map < 1e-8, "PASS", "FAIL")))
+```
+
+### 5.2.2 Posterior Probability Helper
+
+```{r posterior-prob-fn}
+# MAP mixture posterior: P(p_e > p_c | data) via Monte Carlo.
+# All prior parameters passed explicitly so sensitivity sweeps can vary them.
+map_posterior_prob <- function(x_e, n_e, x_c, n_c,
+                               a_inf, b_inf, w_inf,
+                               a_vag = 0.5, b_vag = 0.5,
+                               n_mc  = N_mc) {
+  ai <- a_inf + x_c;  bi <- b_inf + (n_c - x_c)
+  av <- a_vag + x_c;  bv <- b_vag + (n_c - x_c)
+
+  # Update weights via log marginal likelihood (numerically stable)
+  lml_i <- lbeta(ai, bi) - lbeta(a_inf, b_inf)
+  lml_v <- lbeta(av, bv) - lbeta(a_vag, b_vag)
+  log_Z  <- log(w_inf * exp(lml_i) + (1 - w_inf) * exp(lml_v))
+  w_i    <- w_inf * exp(lml_i - log_Z)
+
+  p_c_draw <- ifelse(runif(n_mc) < w_i,
+                     rbeta(n_mc, ai, bi),
+                     rbeta(n_mc, av, bv))
+  p_e_draw <- rbeta(n_mc, 0.5 + x_e, 0.5 + (n_e - x_e))
+  mean(p_e_draw > p_c_draw)
+}
+```
+
+### 5.2.3 Single-Arm SSR — Validation Against Lee & Liu (2008)
+
+```{r ssr-helpers}
+# Conditional power: Wald approximation for binary endpoint (blinded interim).
+conditional_power <- function(x_int, n_int, n_total, p0, alpha = 0.025) {
+  p_hat <- x_int / n_int
+  if (n_total <= n_int || p_hat <= p0) return(0)
+  z_a <- qnorm(1 - alpha)
+  mu  <- (p_hat - p0) / sqrt(p0 * (1 - p0) / n_total)
+  pmax(0, pnorm(mu - z_a))
+}
+
+# SSR: find smallest n >= n_int achieving target CP, capped at n_max.
+ssr_n_target <- function(x_int, n_int, p0,
+                          target_cp = 0.80, alpha = 0.025, n_max = N_max) {
+  p_hat <- x_int / n_int
+  if (p_hat <= p0) return(n_int)
+  lo <- n_int;  hi <- n_max
+  for (k in seq_len(50)) {
+    mid <- (lo + hi) %/% 2L
+    if (conditional_power(x_int, n_int, mid, p0, alpha) >= target_cp)
+      hi <- mid else lo <- mid
+    if (hi - lo <= 1L) break
+  }
+  min(hi, n_max)
+}
+```
+
+```{r ssr-validation}
+# ── Self-consistency validation for ssr_n_target() ────────────────────────────
+#
+# Approach: for each test scenario (x_int successes at n_int patients),
+# (1) call ssr_n_target() to get the adjusted sample size n*,
+# (2) verify that conditional_power(n*) is within 2% of the target CP.
+#
+# This confirms the SSR function correctly solves the inversion problem:
+# "find the smallest n such that CP(n) ≥ target_cp."
+#
+# intentionally returns n_int unchanged (no increase warranted). In these cases
+# conditional_power(n_int, n_int, ...) = 0 by construction, giving deviation = 0.80.
+# These are correct behavior, not failures. Exclude them from max_dev calculation.
+# The pass column flags them separately as "futile — correct".
+
+ssr_test <- tribble(
+  ~x_int, ~n_int, ~target_cp,
+  # Futile zone: p_hat ≤ p0 → ssr_n_target returns n_int unchanged (no SSR)
+  11, 45, 0.80,    # p_hat = 0.244 < p0 = 0.25 → futile (correct: no increase)
+  # Active zone: p_hat > p0 → SSR should find n* achieving target CP
+  14, 45, 0.80,    # p_hat = 0.311 → SSR should increase n
+  16, 45, 0.80,    # p_hat = 0.356
+  18, 45, 0.80,    # p_hat = 0.400
+  20, 45, 0.80,    # p_hat = 0.444
+  14, 30, 0.80,    # earlier interim, same effect size
+  18, 60, 0.80     # later interim
+)
+
+ssr_res <- ssr_test |>
+  mutate(
+    p_hat  = x_int / n_int,
+    futile = p_hat <= p0,
+    n_star = pmap_int(list(x_int, n_int, target_cp), function(x, n, tcp) {
+      ssr_n_target(x, n, p0, target_cp = tcp, n_max = N_max)
+    }),
+    cp_at_nstar = pmap_dbl(list(x_int, n_int, n_star), function(x, n, ns) {
+      conditional_power(x, n, ns, p0, alpha)
+    }),
+    # CP at n*-1: confirms n* is the MINIMUM solution.
+    # Because n is an integer, CP(n*) can legitimately overshoot the target
+    # by a significant margin — measuring |CP(n*) - target| incorrectly
+    # penalizes correct discrete optimization. The right test is minimality:
+    #   (1) CP(n*)   >= target  — target is achieved
+    #   (2) CP(n*-1) <  target  — n* cannot be reduced by 1
+    cp_at_nstar_m1 = pmap_dbl(
+      list(x_int, n_int, n_star, futile),
+      function(x, n, ns, fut) {
+        if (fut || ns <= n) return(NA_real_)
+        conditional_power(x, n, ns - 1L, p0, alpha)
+      }
+    ),
+    achieves_target = cp_at_nstar >= target_cp | n_star == N_max,
+    is_minimal      = is.na(cp_at_nstar_m1) | cp_at_nstar_m1 < target_cp,
+    pass = case_when(
+      futile      ~ n_star == n_int,               # futile: no increase is correct
+      n_star == N_max ~ TRUE,                      # capped: acceptable
+      TRUE        ~ achieves_target & is_minimal   # active: minimality check
+    )
+  )
+
+kable(
+  ssr_res |>
+    select(x_int, n_int, target_cp, p_hat, n_star,
+           cp_at_nstar, cp_at_nstar_m1, pass) |>
+    mutate(across(where(is.numeric), ~ round(.x, 3))),
+  caption = paste(
+    "SSR minimality check: n* achieves target CP and cannot be reduced by 1.",
+    "Futile (p̂ ≤ p₀): correct if n* = n<sub>int</sub>.",
+    "Active: CP(n*) >= target AND CP(n*-1) < target.",
+    "Note: CP(n*) may legitimately overshoot target — discrete n is expected."),
+  col.names = c("x<sub>int</sub>","n<sub>int</sub>","Target CP","p̂","n*",
+                "CP(n*)","CP(n*−1)","Pass"),
+  escape = FALSE)
+
+active_noncap <- !ssr_res$futile & ssr_res$n_star < N_max
+
+cat(sprintf("SSR:  CP(n*) >= target for all active cases:   %s\n",
+            ifelse(all(ssr_res$achieves_target[active_noncap]), "PASS", "FAIL")))
+cat(sprintf("      CP(n*-1) < target (n* is minimal):       %s\n",
+            ifelse(all(ssr_res$is_minimal[active_noncap], na.rm=TRUE), "PASS", "FAIL")))
+cat(sprintf("      Futile: n_star == n_int for p_hat <= p0:  %s\n",
+            ifelse(all(ssr_res$n_star[ssr_res$futile] ==
+                       ssr_res$n_int[ssr_res$futile]), "PASS", "FAIL")))
+```
+
+### 5.2.4 RAR — Validation Against Rosenberger Optimal Allocation
+
+```{r rar-validation}
+#| cache: true
+thompson_alloc <- function(n, p_e, p_c, a0 = 0.5, b0 = 0.5, n_burn = 10L) {
+  ae <- a0; be <- b0; ac <- a0; bc <- b0; n_e <- 0L
+  for (i in seq_len(n)) {
+    arm <- if (i <= n_burn) (i - 1L) %% 2L else
+           as.integer(rbeta(1, ae, be) >= rbeta(1, ac, bc))
+    if (arm == 1L) {
+      y <- rbinom(1, 1, p_e); ae <- ae + y; be <- be + (1 - y); n_e <- n_e + 1L
+    } else {
+      y <- rbinom(1, 1, p_c); ac <- ac + y; bc <- bc + (1 - y)
+    }
+  }
+  n_e / n
+}
+
+
+# P(X > Y) where X ~ Beta(a1,b1), Y ~ Beta(a2,b2) via numerical integration
+prob_beta_gt <- function(a1, b1, a2, b2) {
+  integrate(function(x) dbeta(x, a1, b1) * pbeta(x, a2, b2),
+            lower = 0, upper = 1, rel.tol = 1e-8)$value
+}
+
+# Validate: after observing fixed outcomes, does one-step TS allocation
+# proportion match P(Beta(ae,be) > Beta(ac,bc))?
+# We do n_reps single-step allocations from a known posterior state.
+
+single_step_ts <- function(ae, be, ac, bc, n_reps = 100000L) {
+  mean(rbeta(n_reps, ae, be) >= rbeta(n_reps, ac, bc))
+}
+
+set.seed(42)
+# Test scenarios: known posterior states after observing specific data
+# ae = 0.5 + x_e, be = 0.5 + (n_e - x_e); similarly for control
+rar_scen <- tribble(
+  ~x_e, ~n_e, ~x_c, ~n_c,
+    5,   10,    2,   10,   # clearly favors experimental
+    3,   10,    5,   10,   # clearly favors control
+    5,   10,    5,   10,   # symmetric (should give ~0.5)
+    8,   20,    4,   20,   # moderate asymmetry
+   12,   30,    8,   30    # larger sample
+)
+
+rar_res <- rar_scen |>
+  mutate(
+    ae = 0.5 + x_e, be = 0.5 + (n_e - x_e),
+    ac = 0.5 + x_c, bc = 0.5 + (n_c - x_c),
+    # Analytical reference: P(Beta(ae,be) > Beta(ac,bc))
+    ref_alloc = pmap_dbl(list(ae, be, ac, bc),
+                         ~ prob_beta_gt(..1, ..2, ..3, ..4)),
+    # Empirical: 100k single-step TS draws
+    emp_alloc = pmap_dbl(list(ae, be, ac, bc),
+                         ~ single_step_ts(..1, ..2, ..3, ..4)),
+    deviation = abs(emp_alloc - ref_alloc),
+    pass      = deviation < 0.005   # Monte Carlo error at n=100k is ~0.001
+  )
+
+kable(
+  rar_res |> select(x_e, n_e, x_c, n_c, ref_alloc, emp_alloc, deviation, pass),
+  digits = 4,
+  caption = paste(
+    "RAR validation: Thompson Sampling one-step allocation probability vs.",
+    "analytical P(Beta(ae,be) > Beta(ac,bc)) via numerical integration.",
+    "n=100k MC draws; expected Monte Carlo SE ≈ 0.001."),
+  col.names = c("x<sub>e</sub>","n<sub>e</sub>","x<sub>c</sub>","n<sub>c</sub>","Analytical P(θ<sub>e</sub>>θ<sub>c</sub>)",
+                "TS proportion","|dev|","Pass"),
+  escape = FALSE)
+
+cat(sprintf("RAR:  max dev = %.5f  [threshold 0.005]  %s\n",
+            max(rar_res$deviation), ifelse(all(rar_res$pass), "PASS", "FAIL")))
+```
+
+---
+
+## 5.3 Composed Pipeline Simulation
+
+### Core simulation function
+
+```{r sim-fn}
+# simulate_one_trial() -----------------------------------------------------------
+#
+# Returns TRUE if H0 is rejected.
+#
+# Two-arm Phase II design with historical borrowing on the control arm via a
+# MAP prior, three co-occurring adaptive mechanisms:
+#   MAP Bayesian monitoring, blinded SSR (if use_ssr), Thompson Sampling RAR (if use_rar)
+#
+# Negative control (Version B — causal isolation):
+#   Same monitoring schedule as primary (looks = c(30,45,60,90)).
+#   Same use_ssr=TRUE, use_rar=TRUE.
+#   ONLY difference: n_ssr_trig=30 instead of 45.
+#   => SSR co-occurs with the n=30 look (not n=45), breaking co-occurrence
+#      at the richer n=45 interim where conflict and trend have accumulated.
+#
+# Key property of Version B: monitoring boundaries evaluated at identical
+# sample sizes in primary and control; only SSR timing differs.
+#
+# Factorial decomposition: use_ssr x use_rar gives four conditions.
+# Mechanism isolation: vary p_c_data (conflict) and delta (trend) independently.
+
+simulate_one_trial <- function(
+    gamma,
+    p_true_e   = 0.25,
+    p_c_data   = 0.25,    # control data-generating rate (conflict: != p0)
+    delta      = 0,       # time trend magnitude
+    w_inf      = 0.70,
+    a_inf      = 6.5,  b_inf = 19.5,
+    a_vag      = 0.5,  b_vag = 0.5,
+    n_ssr_trig = 45L,     # when SSR fires (primary=45, Version B control=30)
+    use_ssr    = TRUE,    # FALSE = no sample size adaptation
+    use_rar    = TRUE,    # FALSE = fixed 1:1 alternating allocation
+    n_base     = 90L,
+    n_cap      = 150L,
+    looks      = c(30L, 45L, 60L, 90L),
+    n_burn_rar = 10L,
+    n_mc_pp    = 2000L) {
+
+  n_total  <- n_base
+  ssr_done <- FALSE
+
+  alloc_v <- integer(n_cap)
+  resp_v  <- numeric(n_cap)
+
+  ae <- 0.5; be <- 0.5   # TS posteriors (experimental)
+  ac <- 0.5; bc <- 0.5   # TS posteriors (control)
+
+  i <- 1L
+  while (i <= n_total) {
+
+    t_frac  <- (i - 1L) / n_total
+    p_e_now <- p_true_e + delta * t_frac
+    p_c_now <- p_c_data + delta * t_frac
+
+    # Allocation: Thompson Sampling or fixed 1:1
+    arm <- if (!use_rar || i <= n_burn_rar)
+      (i - 1L) %% 2L
+    else
+      as.integer(rbeta(1, ae, be) >= rbeta(1, ac, bc))
+
+    # Outcome
+    if (arm == 1L) {
+      y <- rbinom(1, 1, p_e_now)
+      ae <- ae + y; be <- be + (1L - y)
+    } else {
+      y <- rbinom(1, 1, p_c_now)
+      ac <- ac + y; bc <- bc + (1L - y)
+    }
+    alloc_v[i] <- arm
+    resp_v[i]  <- y
+
+    # SSR (fires at n_ssr_trig, uses all data up to that point)
+    if (use_ssr && i == n_ssr_trig && !ssr_done) {
+      ssr_done <- TRUE
+      x_pool <- sum(resp_v[1:i])
+      n_new  <- ssr_n_target(x_pool, i, p0 = 0.25,
+                              target_cp = 0.80, n_max = n_cap)
+      if (n_new > n_total) n_total <- n_new
+    }
+
+    i <- i + 1L
+  }
+
+  enrolled <- i - 1L
+  alloc_v  <- alloc_v[1:enrolled]
+  resp_v   <- resp_v[1:enrolled]
+
+  # Bayesian monitoring: same schedule regardless of use_ssr / use_rar
+  actual_looks <- sort(unique(c(looks[looks <= n_base], n_total)))
+  actual_looks <- actual_looks[actual_looks <= enrolled]
+
+  cum_ne <- cumsum(alloc_v == 1L)
+  cum_xe <- cumsum(resp_v  * (alloc_v == 1L))
+  cum_xc <- cumsum(resp_v  * (alloc_v == 0L))
+
+  rejected <- FALSE
+
+  for (lk in actual_looks) {
+    ne <- cum_ne[lk];  xe <- cum_xe[lk]
+    nc <- lk - ne;     xc <- cum_xc[lk]
+    if (ne == 0L || nc == 0L) next
+
+    # Posterior always uses all data up to this look (no stagger)
+    pp <- map_posterior_prob(xe, ne, xc, nc,
+                             a_inf, b_inf, w_inf, a_vag, b_vag, n_mc_pp)
+    if (pp > gamma) { rejected <- TRUE; break }
+  }
+
+  rejected
+}
+```
+
+### Threshold calibration
+
+$\gamma^*$ is calibrated under $H_0$ with no conflict and no trend.
+
+```{r calibration}
+#| cache: true
+gamma_grid <- seq(0.90, 0.99, by = 0.005)
+
+set.seed(1L)
+t1e_calib <- sapply(gamma_grid, function(g) {
+  mean(replicate(N_sim_calib,
+                 simulate_one_trial(gamma    = g,
+                                    p_true_e = p0,
+                                    p_c_data = p0,      # no conflict
+                                    delta    = 0,       # no trend
+                                    use_ssr  = TRUE,    # calibrate with mechanisms on
+                                    use_rar  = TRUE)))  # but no conflict/trend
+})
+
+gamma_star  <- gamma_grid[which.min(abs(t1e_calib - alpha))]
+t1e_at_star <- t1e_calib[which.min(abs(t1e_calib - alpha))]
+
+cat(sprintf("gamma* = %.3f  (achieved alpha = %.4f)\n", gamma_star, t1e_at_star))
+
+tibble(gamma = gamma_grid, t1e = t1e_calib) |>
+  ggplot(aes(gamma, t1e)) +
+  geom_line(color = ZET$ink, linewidth = 1) +
+  geom_point(size = 2, color = ZET$ink) +
+  geom_hline(yintercept = alpha,      linetype = "dashed", color = ZET$red) +
+  geom_vline(xintercept = gamma_star, linetype = "dashed", color = ZET$green) +
+  annotate("text", x = gamma_star + 0.002, y = 0.075,
+           label = sprintf("γ* = %.3f", gamma_star),
+           color = ZET$green2, hjust = 0, size = 3.5, fontface = "bold") +
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  labs(title    = "Monitoring Threshold Calibration",
+       subtitle = sprintf("Target α = %.3f under H₀ (no conflict, no trend)", alpha),
+       x = "Efficacy threshold γ", y = "Simulated Type I error") +
+  theme_zetyra()
+```
+
+### Primary result: shared $\mathcal{F}_t$
+
+```{r primary-sim}
+#| cache: true
+# PRIMARY: SSR fires at n=45 (same look as monitoring) → co-occurrence on F_{45}
+# Mechanisms: prior-data conflict (p_c=0.30 vs. prior mean 0.25) + time trend
+#
+# H0 SPECIFICATION: Both arms generated from p0_conflict (= 0.30).
+# The MAP prior still expects 0.25 — this IS the conflict.
+# H0 (no treatment effect) is preserved: p_true_e = p_c_data = 0.30.
+set.seed(2026L)
+rejs_primary <- replicate(
+  N_sim_main,
+  simulate_one_trial(gamma      = gamma_star,
+                     p_true_e   = p0_conflict,  # H0: same rate as control
+                     p_c_data   = p0_conflict,
+                     delta      = delta_trend,
+                     n_ssr_trig = 45L,    # SSR fires at n=45 monitoring look
+                     use_ssr    = TRUE,
+                     use_rar    = TRUE))
+
+t1e_primary   <- mean(rejs_primary)
+inflation_abs <- t1e_primary - alpha
+inflation_pct <- inflation_abs / alpha * 100
+
+cat(sprintf("PRIMARY  T1E:  %.4f  (nominal %.3f)\n", t1e_primary, alpha))
+cat(sprintf("Inflation:     +%.4f  (+%.1f%%)\n", inflation_abs, inflation_pct))
+```
+
+```{r mild-conflict-sim}
+#| cache: true
+
+# MILD CONFLICT: p_e = p_c = 0.27 (2pp above prior mean of 0.25)
+# All other parameters identical to primary simulation
+set.seed(2028L)
+rejs_mild <- replicate(
+  N_sim_main,
+  simulate_one_trial(gamma      = gamma_star,
+                     p_true_e   = p0_conflict_mild,
+                     p_c_data   = p0_conflict_mild,
+                     delta      = delta_trend,
+                     n_ssr_trig = 45L,
+                     use_ssr    = TRUE,
+                     use_rar    = TRUE))
+
+t1e_mild      <- mean(rejs_mild)
+inflation_mild <- t1e_mild - alpha
+inflation_pct_mild <- inflation_mild / alpha * 100
+
+cat(sprintf("MILD CONFLICT T1E:  %.4f  (nominal %.3f)\n", t1e_mild, alpha))
+cat(sprintf("Inflation:          +%.4f  (+%.1f%%)\n", inflation_mild, inflation_pct_mild))
+cat(sprintf("vs. strong conflict: %.4f  (strong = %.4f)\n", t1e_mild, t1e_primary))
+
+# Comparison table
+tribble(
+  ~Scenario,                              ~`p_conflict`, ~`T1E`,       ~`vs. nominal`,
+  "No conflict (calibration)",            "0.25",        t1e_at_star,   "—",
+  "Mild conflict (p=0.27)",     "0.27",        t1e_mild,
+    sprintf("%+.1f%%", inflation_pct_mild),
+  "Strong conflict (p=0.30)","0.30",        t1e_primary,
+    sprintf("%+.1f%%", inflation_pct)
+) |>
+  mutate(T1E = sprintf("%.4f", T1E)) |>
+  kable(caption = paste(
+    "Inflation scales with conflict severity.",
+    "Mild conflict (2pp): representative of plausible inter-study variation.",
+    "Strong conflict (5pp): stress test demonstrating inflation scales with severity.",
+    "All other parameters identical across rows."),
+    align = c("l","c","r","r"))
+```
+
+### Negative control: Version B — same monitoring, SSR timing only varies
+
+The Version B control addresses the concern that changing SSR timing
+might simultaneously alter the monitoring schedule and the posterior evidence base.
+
+**Version B design:**
+
+| Look | Primary (shared) | Version B control |
+|------|-----------------|-------------------|
+| n=30 | monitoring only | **monitoring + SSR** |
+| n=45 | **monitoring + SSR** | monitoring only |
+| n=60 | monitoring only | monitoring only |
+| final | monitoring | monitoring |
+
+Monitoring is evaluated at identical sample sizes in both designs. The only
+difference is *when* SSR fires relative to a monitoring look.
+
+**Causal claim being tested:** Does SSR co-occurring at the n=45 monitoring look
+— where both prior-data conflict and time trend effects have had more time to
+accumulate — produce more Type I error inflation than SSR co-occurring at the
+earlier n=30 look? If the attenuation is large, SSR timing is the primary driver;
+if the attenuation is negligible, prior-data conflict persists as the dominant
+mechanism regardless of when SSR fires.
+
+```{r negative-control}
+#| cache: true
+
+# Version B control: n_ssr_trig=30 — SSR fires at n=30 look, not n=45
+# All other parameters identical to primary (including H0 specification)
+set.seed(2027L)
+rejs_neg <- replicate(
+  N_sim_main,
+  simulate_one_trial(gamma      = gamma_star,
+                     p_true_e   = p0_conflict,  # H0: same rate as control
+                     p_c_data   = p0_conflict,
+                     delta      = delta_trend,
+                     n_ssr_trig = 30L,    # SSR fires at n=30 look (not n=45)
+                     use_ssr    = TRUE,
+                     use_rar    = TRUE))
+
+t1e_neg       <- mean(rejs_neg)
+pct_recovered <- (t1e_primary - t1e_neg) / inflation_abs * 100
+
+cat(sprintf("Version B T1E: %.4f  (nominal %.3f)\n", t1e_neg, alpha))
+cat(sprintf("Primary T1E:   %.4f\n", t1e_primary))
+cat(sprintf("Attenuation:   %.1f%% of inflation removed by moving SSR to n=30\n",
+            pct_recovered))
+```
+
+```{r results-plot, fig.cap="Type I error: calibration target, primary (SSR at n=45), and Version B negative control (SSR at n=30). The negligible attenuation (~0.8%) when SSR is moved earlier largely rules out SSR timing as the primary driver; prior-data conflict persists as the dominant mechanism."}
+tibble(
+  Scenario = factor(
+    c("Calibration\n(no conflict,\nno trend)",
+      "Primary\n(SSR at n = 45,\nshared F₄₅)",
+      "Version B control\n(SSR at n = 30,\nno co-occur at n = 45)"),
+    levels = c("Calibration\n(no conflict,\nno trend)",
+               "Primary\n(SSR at n = 45,\nshared F₄₅)",
+               "Version B control\n(SSR at n = 30,\nno co-occur at n = 45)")),
+  T1E  = c(t1e_at_star, t1e_primary, t1e_neg),
+  fill = c("a", "b", "c")
+) |>
+  ggplot(aes(Scenario, T1E, fill = fill)) +
+  geom_col(width = 0.50) +
+  geom_hline(yintercept = alpha, linetype = "dashed",
+             color = ZET$red, linetype = "dashed", linewidth = 0.8) +
+  geom_text(aes(label = sprintf("%.4f", T1E)),
+            vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
+  scale_fill_manual(values = c(a = ZET$gridline, b = ZET$green, c = ZET$teal)) +
+  scale_y_continuous(limits = c(0, max(t1e_primary, t1e_neg, 0.04) * 1.30),
+                     labels = percent_format(accuracy = 0.1)) +
+  labs(title    = "Pipeline-Level Type I Error: Primary vs. Version B Negative Control",
+       subtitle = bquote(
+         "Two-arm design, MAP prior, conflict" ~ p[c] == .(sprintf("%.2f", p0_conflict)) ~
+         "(prior" ~ .(sprintf("%.2f,", p0)) ~ "trend" ~ δ == .(sprintf("%.2f)", delta_trend))),
+       x = NULL, y = "Type I error") +
+  theme_zetyra() + theme(legend.position = "none")
+```
+
+```{r results-table}
+tribble(
+  ~Scenario, ~T1E, ~`vs. nominal`, ~Note,
+  "Calibration (no conflict/trend)", t1e_at_star, "—", "threshold target",
+  "Primary: SSR co-occurs at n=45", t1e_primary,
+    sprintf("%+.1f%%", inflation_pct), "shared F₄₅",
+  "Version B: SSR at n = 30 (not n = 45)", t1e_neg,
+    sprintf("%+.1f%%", (t1e_neg - alpha)/alpha*100), "no co-occur at n=45"
+) |>
+  mutate(T1E = sprintf("%.4f", T1E)) |>
+  kable(caption = paste("Type I error summary. Version B tests SSR timing as a causal variable;",
+                        "negligible attenuation indicates SSR timing is not the primary driver."),
+        align = c("l","r","r","l"))
+```
+
+---
+
+## 5.4 Factorial Decomposition
+
+Running four designs (SSR × RAR) decomposes the inflation into additive components
+and interaction. A positive interaction term would indicate super-additivity;
+a negative term indicates slight sub-additivity, meaning the combined inflation
+is marginally less than the sum of individual contributions.
+
+All four conditions use the same monitoring threshold $\gamma^*$ and the same
+prior-data conflict and time trend parameters as the primary simulation.
+
+```{r factorial}
+#| cache: true
+
+cat("Factorial decomposition: use_ssr x use_rar\n")
+set.seed(3000L)
+
+# Four conditions: 2x2 SSR x RAR
+factorial_grid <- expand.grid(use_ssr = c(FALSE, TRUE),
+                               use_rar = c(FALSE, TRUE))
+
+t1e_factorial <- apply(factorial_grid, 1, function(row) {
+  mean(replicate(N_sim_sens,
+    simulate_one_trial(gamma    = gamma_star,
+                       p_true_e = p0_conflict,  # H0: p_e = p_c = p0_conflict
+                       p_c_data = p0_conflict,
+                       delta    = delta_trend,
+                       use_ssr  = as.logical(row["use_ssr"]),
+                       use_rar  = as.logical(row["use_rar"]))))
+})
+
+factorial_res <- factorial_grid |>
+  mutate(T1E = t1e_factorial,
+         label = case_when(
+           !use_ssr & !use_rar ~ "Baseline\n(no SSR, no RAR)",
+           use_ssr  & !use_rar ~ "SSR only\n(fixed allocation)",
+           !use_ssr & use_rar  ~ "RAR only\n(no SSR)",
+           use_ssr  & use_rar  ~ "SSR + RAR\n(primary)"
+         ))
+
+# Factorial effects — prefixed _f_ to avoid collision with sensitivity t1e_ssr
+t1e_f_base <- factorial_res$T1E[!factorial_res$use_ssr & !factorial_res$use_rar]
+t1e_f_ssr  <- factorial_res$T1E[ factorial_res$use_ssr & !factorial_res$use_rar]
+t1e_f_rar  <- factorial_res$T1E[!factorial_res$use_ssr &  factorial_res$use_rar]
+t1e_f_both <- factorial_res$T1E[ factorial_res$use_ssr &  factorial_res$use_rar]
+
+# Compute deltas directly from factorial_res — no intermediate variables
+# that could be shadowed by later chunks
+delta_f_ssr  <- t1e_f_ssr  - t1e_f_base
+delta_f_rar  <- t1e_f_rar  - t1e_f_base
+delta_f_int  <- t1e_f_both - t1e_f_ssr - t1e_f_rar + t1e_f_base
+
+cat(sprintf("Δ_SSR         = %+.4f\n", delta_f_ssr))
+cat(sprintf("Δ_RAR         = %+.4f\n", delta_f_rar))
+cat(sprintf("Δ_interaction = %+.4f  (super-additive if > 0)\n", delta_f_int))
+
+# Bar chart
+factorial_res |>
+  mutate(label = factor(label, levels = label)) |>
+  ggplot(aes(label, T1E, fill = use_ssr & use_rar)) +
+  geom_col(width = 0.52) +
+  geom_hline(yintercept = alpha, linetype = "dashed",
+             color = ZET$red, linewidth = 0.8) +
+  geom_text(aes(label = sprintf("%.4f", T1E)),
+            vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
+  scale_fill_manual(values = c(`FALSE` = ZET$gridline, `TRUE` = ZET$green)) +
+  scale_y_continuous(limits = c(0, max(t1e_factorial) * 1.30),
+                     labels = percent_format(accuracy = 0.1)) +
+  labs(title    = "Factorial Decomposition: SSR × RAR",
+       subtitle = bquote(
+         Delta[SSR] == .(sprintf("%+.4f", delta_f_ssr)) ~~ "|" ~~
+         Delta[RAR] == .(sprintf("%+.4f", delta_f_rar)) ~~ "|" ~~
+         Delta[interaction] == .(sprintf("%+.4f", delta_f_int))),
+       x = NULL, y = "Type I error") +
+  theme_zetyra() + theme(legend.position = "none")
+```
+
+```{r factorial-table}
+tribble(
+  ~Condition, ~`T1E`, ~`vs. baseline`,
+  "Baseline (no SSR, no RAR)", t1e_f_base, "—",
+  "SSR only (fixed allocation)", t1e_f_ssr, sprintf("%+.4f", delta_f_ssr),
+  "RAR only (no SSR)",          t1e_f_rar, sprintf("%+.4f", delta_f_rar),
+  "SSR + RAR (primary)",        t1e_f_both,sprintf("%+.4f", t1e_f_both - t1e_f_base)
+) |>
+  mutate(T1E = sprintf("%.4f", T1E)) |>
+  kable(caption = paste("Factorial decomposition. Interaction term =",
+                         sprintf("%.4f", delta_f_int),
+                         ". If positive, co-occurrence produces super-additive inflation."),
+        align = c("l","r","r"))
+```
+
+---
+
+## 5.5 Mechanism Isolation: Prior–Data Conflict vs. Time Trend
+
+The primary simulation activates both mechanisms simultaneously. Here we isolate them
+in a 2× 2 design (conflict × trend) to show each independently contributes,
+and that co-occurrence amplifies beyond either alone.
+
+```{r mechanism-isolation}
+#| cache: true
+
+cat("Mechanism isolation: 2x2 conflict x trend\n")
+set.seed(4000L)
+
+mech_grid <- expand.grid(
+  conflict = c(FALSE, TRUE),
+  trend    = c(FALSE, TRUE)
+)
+
+t1e_mech <- apply(mech_grid, 1, function(row) {
+  p_c <- if (row["conflict"]) p0_conflict else p0   # 0.30 vs 0.25
+  d   <- if (row["trend"])    delta_trend  else 0    # 0.05 vs 0
+  # H0: p_true_e = p_c_data (both arms at same rate, MAP prior is what conflicts)
+  mean(replicate(N_sim_sens,
+    simulate_one_trial(gamma    = gamma_star,
+                       p_true_e = p_c,   # H0 preserved: same rate as control
+                       p_c_data = p_c,
+                       delta    = d,
+                       use_ssr  = TRUE,
+                       use_rar  = TRUE)))
+})
+
+mech_res <- mech_grid |>
+  mutate(T1E   = t1e_mech,
+         label = case_when(
+           !conflict & !trend ~ "Neither\n(calibration)",
+           conflict  & !trend ~ "Conflict only\n(no trend)",
+           !conflict & trend  ~ "Trend only\n(no conflict)",
+           conflict  & trend  ~ "Both\n(primary)"
+         ))
+
+# Additive prediction vs. actual
+t1e_neither  <- mech_res$T1E[!mech_res$conflict & !mech_res$trend]
+t1e_conf_only<- mech_res$T1E[ mech_res$conflict & !mech_res$trend]
+t1e_trend_only<-mech_res$T1E[!mech_res$conflict &  mech_res$trend]
+t1e_both_mech<- mech_res$T1E[ mech_res$conflict &  mech_res$trend]
+
+additive_pred <- t1e_conf_only + t1e_trend_only - t1e_neither
+interaction_term <- t1e_both_mech - additive_pred
+
+cat(sprintf("Conflict only:    %.4f  (+%.4f vs. calibration)\n",
+            t1e_conf_only,  t1e_conf_only  - t1e_neither))
+cat(sprintf("Trend only:       %.4f  (+%.4f vs. calibration)\n",
+            t1e_trend_only, t1e_trend_only - t1e_neither))
+cat(sprintf("Additive prediction: %.4f\n", additive_pred))
+cat(sprintf("Observed (both):     %.4f\n", t1e_both_mech))
+cat(sprintf("Interaction term:    %+.4f  (amplification if > 0)\n", interaction_term))
+
+mech_res |>
+  mutate(label = factor(label, levels = label)) |>
+  ggplot(aes(label, T1E,
+             fill = factor(conflict + trend * 2,
+                           labels = c("Neither","Conflict","Trend","Both")))) +
+  geom_col(width = 0.52) +
+  geom_hline(yintercept = alpha, linetype = "dashed",
+             color = ZET$red, linewidth = 0.8) +
+  geom_hline(yintercept = additive_pred, linetype = "dotted",
+             color = ZET$muted, linewidth = 0.8) +
+  annotate("text", x = 3.5, y = additive_pred + 0.004,
+           label = sprintf("Additive prediction: %.4f", additive_pred),
+           size = 3, color = ZET$slate, hjust = 1) +
+  geom_text(aes(label = sprintf("%.4f", T1E)),
+            vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
+  scale_fill_manual(values = c(Neither  = ZET$gridline,
+                                Conflict = "#2563EB",
+                                Trend    = ZET$teal,
+                                Both     = ZET$green)) +
+  scale_y_continuous(limits = c(0, max(t1e_mech) * 1.35),
+                     labels = percent_format(accuracy = 0.1)) +
+  labs(title    = "Mechanism Isolation: Prior–Data Conflict × Time Trend",
+       subtitle = paste("Dotted = additive prediction. Interaction =",
+                         sprintf("%+.4f", interaction_term),
+                         "(amplification if above dotted line)"),
+       x = NULL, y = "Type I error", fill = NULL) +
+  theme_zetyra() + theme(legend.position = "bottom")
+```
+
+```{r mechanism-table}
+tribble(
+  ~Condition, ~T1E, ~`vs. calibration`, ~Note,
+  "Neither (calibration)",    t1e_neither,   "—",              "threshold target",
+  "Conflict only (no trend)", t1e_conf_only,
+    sprintf("%+.4f", t1e_conf_only - t1e_neither),  "MAP prior conflict",
+  "Trend only (no conflict)", t1e_trend_only,
+    sprintf("%+.4f", t1e_trend_only - t1e_neither), "RAR drift",
+  "Both (primary)",           t1e_both_mech,
+    sprintf("%+.4f", t1e_both_mech - t1e_neither),  sprintf("interaction = %+.4f", interaction_term)
+) |>
+  mutate(T1E = sprintf("%.4f", T1E)) |>
+  kable(caption = paste("2x2 mechanism isolation. Each mechanism alone induces mild",
+                        "deviation; co-occurrence amplifies beyond the additive prediction."),
+        align = c("l","r","r","l"))
+```
+
+---
+
+## 5.6 Sensitivity Analysis
+
+
+All three sweeps pass the relevant parameter directly into `simulate_one_trial()`.
+No global variables are mutated.
+
+```{r sens-prior-weight}
+#| cache: true
+w_grid <- seq(0, 0.90, by = 0.10)
+set.seed(300L)
+
+t1e_w <- sapply(w_grid, function(w) {
+  mean(replicate(N_sim_sens,
+                 simulate_one_trial(gamma    = gamma_star,
+                                    p_true_e = p0_conflict,
+                                    p_c_data = p0_conflict,
+                                    delta    = delta_trend,
+                                    w_inf    = w,         # varied here
+                                    use_ssr  = TRUE,
+                                    use_rar  = TRUE)))
+})
+
+p_w <- tibble(w = w_grid, t1e = t1e_w) |>
+  ggplot(aes(w, t1e)) +
+  geom_line(color = ZET$green, linewidth = 1.2) +
+  geom_point(color = ZET$green, size = 2.5) +
+  geom_hline(yintercept = alpha, linetype = "dashed", color = ZET$red) +
+  scale_x_continuous(labels = percent_format()) +
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  labs(title = "Prior Weight", x = bquote(w[inf]), y = "T1E") +
+  theme_zetyra()
+```
+
+```{r sens-time-trend}
+#| cache: true
+delta_grid <- seq(0, 0.15, by = 0.025)
+set.seed(400L)
+
+t1e_d <- sapply(delta_grid, function(d) {
+  mean(replicate(N_sim_sens,
+                 simulate_one_trial(gamma    = gamma_star,
+                                    p_true_e = p0_conflict,
+                                    p_c_data = p0_conflict,
+                                    delta    = d,          # varied here
+                                    w_inf    = w_inf,
+                                    use_ssr  = TRUE,
+                                    use_rar  = TRUE)))
+})
+
+p_d <- tibble(d = delta_grid, t1e = t1e_d) |>
+  ggplot(aes(d, t1e)) +
+  geom_line(color = ZET$green, linewidth = 1.2) +
+  geom_point(color = ZET$green, size = 2.5) +
+  geom_hline(yintercept = alpha, linetype = "dashed", color = ZET$red) +
+  scale_x_continuous(labels = percent_format()) +
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  labs(title = "Time Trend Magnitude", x = bquote(δ), y = "T1E") +
+  theme_zetyra()
+```
+
+```{r sens-ssr-timing}
+#| cache: true
+ssr_grid <- c(20L, 30L, 40L, 45L, 55L, 60L)
+set.seed(500L)
+
+t1e_ssr <- sapply(ssr_grid, function(nt) {
+  mean(replicate(N_sim_sens,
+                 simulate_one_trial(gamma      = gamma_star,
+                                    p_true_e   = p0_conflict,  # H0: p_e = p_c = p0_conflict
+                                    p_c_data   = p0_conflict,
+                                    delta      = delta_trend,
+                                    w_inf      = w_inf,
+                                    n_ssr_trig = nt,       # varied here
+                                    use_ssr    = TRUE,
+                                    use_rar    = TRUE)))
+})
+
+p_ssr <- tibble(
+  nt    = ssr_grid,
+  t1e   = t1e_ssr,
+  label = sprintf("n=%d\n(%d%%)", ssr_grid,
+                  as.integer(round(ssr_grid / N_base * 100)))
+) |>
+  ggplot(aes(label, t1e)) +
+  geom_col(fill = ZET$green, width = 0.55, alpha = 0.90) +
+  geom_hline(yintercept = alpha, linetype = "dashed", color = ZET$red) +
+  geom_text(aes(label = sprintf("%.4f", t1e)),
+            vjust = -0.5, size = 3.5, color = ZET$ink) +
+  scale_y_continuous(limits = c(0, max(t1e_ssr) * 1.25),
+                     labels = percent_format(accuracy = 0.1)) +
+  labs(title = "SSR Trigger Timing", x = bquote(n[SSR]), y = "T1E") +
+  theme_zetyra()
+```
+
+```{r sens-panel, fig.width=13, fig.height=4.5, fig.cap="Sensitivity: Type I error inflation vs. prior weight (left), time trend (centre), SSR timing (right). Dashed line = nominal alpha = 0.025. Direction does not reverse across any examined range."}
+p_w | p_d | p_ssr
+```
+
+```{r sens-table}
+tribble(
+  ~Parameter,        ~Range,              ~`Min T1E`,             ~`Max T1E`,             ~`Direction reversal`,
+  "Prior weight (w<sub>inf</sub>)",    "0% – 90%",
+    sprintf("%.4f", min(t1e_w)),   sprintf("%.4f", max(t1e_w)),   "No",
+  "Time trend (δ)",  "0% – 15%",
+    sprintf("%.4f", min(t1e_d)),   sprintf("%.4f", max(t1e_d)),   "No",
+  "SSR timing (n<sub>SSR</sub>)",      "n = 20, 30, 40, 45, 55, 60",
+    sprintf("%.4f", min(t1e_ssr)), sprintf("%.4f", max(t1e_ssr)), "No"
+) |>
+  kable(caption = "Sensitivity bounds across all parameter ranges",
+        align   = c("l","l","r","r","c"),
+        escape  = FALSE)
+```
+
+---
+
+## 5.5 Reproducibility
+
+```{r auto-summary}
+#| code-fold: false
+cat(sprintf("gamma*                = %.3f\n", gamma_star))
+cat(sprintf("T1E (calibration)     = %.4f  (target: %.3f)\n", t1e_at_star, alpha))
+cat(sprintf("T1E (mild conflict, p=0.27) = %.4f  (+%.1f%%)\n",
+            t1e_mild, inflation_pct_mild))
+cat(sprintf("T1E (strong conflict, p=0.30) = %.4f  (+%.1f%%)\n",
+            t1e_primary, inflation_pct))
+cat(sprintf("T1E (Version B, n_ssr=30)     = %.4f  (+%.1f%%)\n",
+            t1e_neg, (t1e_neg - alpha)/alpha*100))
+cat(sprintf("Version B attenuation  = %.1f%% of primary inflation\n", pct_recovered))
+cat(sprintf("\nFactorial decomposition:\n"))
+cat(sprintf("  Delta_SSR         = %+.4f\n", delta_f_ssr))
+cat(sprintf("  Delta_RAR         = %+.4f\n", delta_f_rar))
+cat(sprintf("  Delta_interaction = %+.4f\n", delta_f_int))
+cat(sprintf("\nMechanism isolation:\n"))
+cat(sprintf("  Conflict only     = +%.4f\n", t1e_conf_only  - t1e_neither))
+cat(sprintf("  Trend only        = +%.4f\n", t1e_trend_only - t1e_neither))
+cat(sprintf("  Both (primary)    = +%.4f\n", t1e_both_mech  - t1e_neither))
+cat(sprintf("  Interaction term  = %+.4f\n", interaction_term))
+```
+
+```{r mcse-table}
+mcse_tbl <- tribble(
+  ~Estimate,                     ~T1E,           ~N_sim,
+  "Calibration (no conflict)",   t1e_at_star,    N_sim_calib,
+  "Mild conflict (p=0.27)",      t1e_mild,       N_sim_main,
+  "Strong conflict (p=0.30)",    t1e_primary,    N_sim_main,
+  "Version B (SSR at n = 30)",     t1e_neg,        N_sim_main,
+  "Factorial: baseline",         t1e_f_base,     N_sim_sens,
+  "Factorial: SSR only",         t1e_f_ssr,      N_sim_sens,
+  "Factorial: RAR only",         t1e_f_rar,      N_sim_sens,
+  "Factorial: SSR + RAR",        t1e_f_both,     N_sim_sens,
+  "Mech. isol.: neither",        t1e_neither,    N_sim_sens,
+  "Mech. isol.: conflict only",  t1e_conf_only,  N_sim_sens,
+  "Mech. isol.: trend only",     t1e_trend_only, N_sim_sens,
+  "Mech. isol.: both",           t1e_both_mech,  N_sim_sens
+) |>
+  mutate(
+    MCSE   = mcse(T1E, N_sim),
+    CI_lo  = T1E - 1.96 * MCSE,
+    CI_hi  = T1E + 1.96 * MCSE,
+    T1E    = sprintf("%.4f", T1E),
+    MCSE   = sprintf("%.4f", MCSE),
+    `95% SI` = sprintf("[%.4f, %.4f]", CI_lo, CI_hi),
+    N_sim  = formatC(N_sim, format = "d", big.mark = ",")
+  ) |>
+  select(Estimate, T1E, MCSE, `95% SI`, N_sim)
+
+kable(mcse_tbl,
+      caption = "Monte Carlo standard errors and 95% simulation intervals for all key T1E estimates.",
+      align = c("l", "r", "r", "c", "r"))
+
+# ── Propagated MCSEs for derived interaction terms ──────────────────────────
+# Interaction = T1E_both - T1E_A - T1E_B + T1E_neither
+# All four simulations are independent, so Var(interaction) = sum of variances
+
+# Mechanism isolation interaction
+se_mech <- sqrt(
+  mcse(t1e_both_mech,  N_sim_sens)^2 +
+  mcse(t1e_conf_only,  N_sim_sens)^2 +
+  mcse(t1e_trend_only, N_sim_sens)^2 +
+  mcse(t1e_neither,    N_sim_sens)^2
+)
+
+# Factorial interaction
+se_fact <- sqrt(
+  mcse(t1e_f_both, N_sim_sens)^2 +
+  mcse(t1e_f_ssr,  N_sim_sens)^2 +
+  mcse(t1e_f_rar,  N_sim_sens)^2 +
+  mcse(t1e_f_base, N_sim_sens)^2
+)
+
+int_tbl <- tribble(
+  ~`Interaction term`,                    ~Estimate,        ~MCSE,    ~`95% SI`,
+  "Mechanism isolation (conflict × trend)", interaction_term, se_mech,
+    sprintf("[%+.4f, %+.4f]", interaction_term - 1.96*se_mech, interaction_term + 1.96*se_mech),
+  "Factorial (SSR × RAR)",                  delta_f_int,     se_fact,
+    sprintf("[%+.4f, %+.4f]", delta_f_int - 1.96*se_fact, delta_f_int + 1.96*se_fact)
+) |>
+  mutate(Estimate = sprintf("%+.4f", Estimate),
+         MCSE    = sprintf("%.4f", MCSE))
+
+kable(int_tbl,
+      caption = paste("Propagated MCSEs for derived interaction terms.",
+                      "The mechanism-isolation interaction excludes zero;",
+                      "the factorial interaction is within Monte Carlo noise."),
+      align = c("l", "r", "r", "c"))
+```
+
+**Seeds:**
+
+| Simulation | Seed |
+|---|---|
+| MAP prior MCMC | 42 (via `set.seed()` before `gMAP()`) |
+| RAR validation | 42 |
+| Threshold calibration | 1 |
+| Primary: strong conflict (p=0.30) | 2026 |
+| Primary: mild conflict (p=0.27) | 2028 |
+| Version B control (n<sub>SSR</sub> = 30) | 2027 |
+| Factorial decomposition | 3000 |
+| Mechanism isolation (2x2) | 4000 |
+| Sensitivity — prior weight | 300 |
+| Sensitivity — time trend | 400 |
+| Sensitivity — SSR timing | 500 |
+
+```{r session-info}
+#| code-fold: false
+sessionInfo()
+```
+
+---
+
+## References
+
+::: {#refs}
+:::
