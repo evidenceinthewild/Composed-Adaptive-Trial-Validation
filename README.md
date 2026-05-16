@@ -86,7 +86,7 @@ pdflatex JSM_2026_Manuscript.tex
 This work will be presented at:
 
 - **JSM 2026** — Session: AI, Machine Learning & Digital Tools in Clinical Development (August 3, 2026)
-- **RISW 2026** — Panel: Regulatory Innovation in Adaptive & Bayesian Trial Design (August 2026)
+- **RISW 2026** — Panel: Regulatory Innovation in Adaptive & Bayesian Trial Design (September 2026)
 
 ## Citation
 
