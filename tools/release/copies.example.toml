@@ -1,0 +1,231 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Workspace manifest for the release tools.
+#
+#   python3 tools/release/check_release.py   --manifest <this file>
+#   python3 tools/release/port_manuscript.py --manifest <this file> [--apply]
+#
+# EVERY path below is RELATIVE to the workspace root, which is either passed as
+# --workspace or defaults to the directory containing this manifest. Nothing is
+# resolved relative to the scripts, and no absolute user-specific path is ever
+# stored here -- that is the point of the manifest.
+#
+# Copy this file to copies.toml, adjust the paths for your checkout, and keep
+# copies.toml out of version control if your layout is machine-specific.
+# ═══════════════════════════════════════════════════════════════════════════
+
+[build]
+# Number of images every manuscript PDF must embed. A LaTeX run that cannot
+# find a figure still exits 0 and still emits a PDF; this is what catches it.
+expected_images = 6
+
+[transformations]
+# How many times each port transformation MUST match. Zero matches and multiple
+# matches are both failures: either means the document changed shape and the
+# port can no longer be trusted to be mechanical.
+figure_prefix = 2      # composite-null-plot, mechanism-isolation
+schematic_path = 1
+bibliography = 1
+
+[figures]
+source = "Simulation Study/simulation_study_files/figure-html"
+consumers = [
+  "composed-adaptive-validation/manuscript/figures",
+  "arxiv-submission",
+  "proceedings",
+]
+
+[schematic]
+# Hand-built diagram, not produced by the render. The first consumer is the
+# reference copy. Hash equality is all that can be checked automatically; its
+# CONTENT must be re-read whenever the manuscript's claims change.
+filename = "Figure1_Composed_Design.png"
+consumers = [
+  ".",
+  "proceedings",
+  "arxiv-submission",
+  "composed-adaptive-validation/manuscript/figures",
+]
+
+[deck]
+path = "JSM 2026 Zetyra 20260803.pptx"
+min_chart_bytes = 50000    # below this an embedded PNG is a logo or icon
+
+# ── manuscript copies ───────────────────────────────────────────────────────
+# Exactly one entry must set canonical = true; it is the source of the abstract
+# and body that the others receive.
+
+[[manuscript]]
+name = "root"
+tex = "JSM_2026_Manuscript.tex"
+pdf = "JSM_2026_Manuscript.pdf"
+log = "JSM_2026_Manuscript.log"
+figure_prefix = "Simulation Study/simulation_study_files/figure-html/"
+bibliography = "references_manuscript"
+abstract = "env"
+canonical = true
+
+[[manuscript]]
+name = "repo"
+tex = "composed-adaptive-validation/manuscript/JSM_2026_Manuscript.tex"
+pdf = "composed-adaptive-validation/manuscript/JSM_2026_Manuscript.pdf"
+log = "composed-adaptive-validation/manuscript/JSM_2026_Manuscript.log"
+figure_prefix = "figures/"
+bibliography = "references"
+abstract = "env"
+canonical = false
+
+[[manuscript]]
+name = "arxiv"
+tex = "arxiv-submission/JSM_2026_Manuscript.tex"
+pdf = "arxiv-submission/JSM_2026_Manuscript.pdf"
+log = "arxiv-submission/JSM_2026_Manuscript.log"
+figure_prefix = ""
+bibliography = "references_manuscript"
+abstract = "env"
+canonical = false
+
+[[manuscript]]
+name = "proceedings"
+tex = "proceedings/JSM_2026_Proceedings.tex"
+pdf = "proceedings/JSM_2026_Proceedings.pdf"
+log = "proceedings/JSM_2026_Proceedings.log"
+figure_prefix = ""
+bibliography = "references"
+# The ASA template uses \section*{Abstract} rather than the abstract
+# environment. A port that assumed the environment once skipped this file
+# entirely and left it with a stale abstract AND a stale body.
+abstract = "section"
+canonical = false
+
+# ── sweep scope ─────────────────────────────────────────────────────────────
+[scope]
+# Files that constitute this release. Anything else is still swept, but is
+# reported separately so unrelated material cannot block the release.
+release = [
+  "JSM_2026_Manuscript.tex",
+  "JSM_2026_Manuscript.pdf",
+  "references_manuscript.bib",
+  "JSM 2026 Zetyra 20260803.pptx",
+  "JSM 2026 Zetyra 20260803.pdf",
+  "JSM 2026 Talk Script 20260803 - Accessible Rewrite.docx",
+  "proceedings/",
+  "arxiv-submission/",
+  "composed-adaptive-validation/",
+  "Simulation Study/simulation_study.qmd",
+  "Simulation Study/simulation_study_public.qmd",
+  "Simulation Study/references.bib",
+  "Simulation Study/simulation_study.html",
+]
+skip_dirs = [".git", "_archive", "rerun", "simulation_study_cache",
+             "simulation_study_public_cache"]
+# A hit is suppressed when any of these appears within allow_window characters
+# of it -- these are the places where a retracted phrase is deliberately quoted
+# in order to disclaim it.
+allow_window = 320
+allow = [
+  "not a clean negative control", "NOT causal isolation",
+  "rather than mechanism isolation", "NOTE (2026-07 correction)",
+  "Do not say", "do not read", "Do NOT say", "not an attributable share",
+  "I would not state a share", "REMOVED", "version claim removed",
+  "superseded", "retracted",
+]
+
+# ── retracted claims and numbers ────────────────────────────────────────────
+# Single-quoted TOML literal strings: no backslash escaping needed for regexes.
+# Each entry is a claim this project published and then withdrew.
+
+[[retracted]]
+pattern = '0\.0771'
+label = "old headline T1E"
+
+[[retracted]]
+pattern = '\+208\s*%|208%\s*(above|vs)|208 percent'
+label = "old +208% inflation"
+
+[[retracted]]
+pattern = '0\.0278'
+label = "old conflict x trend interaction"
+
+[[retracted]]
+pattern = '0\.1274|0\.1266'
+label = "old primary / Version B values"
+
+[[retracted]]
+pattern = '0\.1350|0\.1072'
+label = "old mechanism-isolation values"
+
+[[retracted]]
+pattern = '\b655\b|35 scripts'
+label = "old validation counts"
+
+[[retracted]]
+pattern = '[Nn]ine published'
+label = "old trial count"
+
+[[retracted]]
+pattern = 'Validate the pipeline'
+label = "retracted slogan"
+
+[[retracted]]
+pattern = 'insufficient for composed'
+label = "retracted thesis"
+
+[[retracted]]
+pattern = 'invisible (to component-level|without pipeline)'
+label = "retracted invisibility claim"
+
+[[retracted]]
+pattern = 'accounts for 65|65\s*%\s*of (the )?excess|generate[sd] most of the excess|excess is generated predominantly|predominantly by the monitoring|carries (about )?\d+\s*%|(most|bulk) of the (excess|inflation)|(accounts? for|attributable to|attributed to|contributes|driven by)[^.]{0,40}\d+\s*%\s*of the (excess|inflation)'
+label = "retracted attribution share"
+
+[[retracted]]
+pattern = 'prior-?data conflict is (the )?dominant'
+label = "retracted mechanism claim"
+
+[[retracted]]
+pattern = 'RAR drift'
+label = "false trend attribution"
+
+[[retracted]]
+pattern = 'zenodo\.18879839'
+label = "superseded whitepaper DOI"
+
+[[retracted]]
+pattern = 'zhou_lee_yuan'
+label = "wrong boundary source (BOP2)"
+
+[[retracted]]
+pattern = 'CUPED/covariate'
+label = "false Leyrat description"
+
+[[retracted]]
+pattern = 'Reference trial:\s*NCT'
+label = "NCT as reference design"
+
+[[retracted]]
+pattern = '[25]\s*pp above (the )?prior mean'
+label = "false departure framing"
+
+[[retracted]]
+pattern = 'Common control/experimental rate'
+label = "old axis label"
+
+[[retracted]]
+pattern = 'Seaman III, James'
+label = "wrong RBesT author"
+
+[[retracted]]
+pattern = 'version 3\.9\.0'
+label = "nonexistent gsDesign version"
+
+[[retracted]]
+pattern = 'Validate H0'
+label = "close line not matching the script"
+
+[[retracted]]
+pattern = 'monitoring-only cell|robustness failure in the monitoring'
+label = "retracted monitoring attribution"
+
+[[retracted]]
+pattern = 'net effect of composition|net composition effect'
+label = "unconditioned composition claim"

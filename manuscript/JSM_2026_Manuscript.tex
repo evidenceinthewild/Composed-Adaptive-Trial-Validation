@@ -43,10 +43,11 @@
 \begin{document}
 
 \begin{center}
-  {\LARGE\bfseries Zetyra: A Validated, Regulatory-Aligned Calculator Suite\\[4pt]
-  for Adaptive and Bayesian Clinical Trial Design}\\[14pt]
+  {\LARGE\bfseries Point Calibration Does Not Control Type~I Error\\[4pt]
+  Across the Composite Null in a\\[4pt]
+  Composed Adaptive Bayesian Design}\\[14pt]
   {\large Lu Qian}\\[4pt]
-  {\normalsize\itshape Zetyra\,/\,Evidence in the Wild, LLC \quad
+  {\normalsize\itshape Zetyra $\vert$ Evidence in the Wild \quad
   \href{mailto:maggie@zetyra.com}{maggie@zetyra.com}}\\[6pt]
   {\small JSM 2026 \textbullet\ Session: AI, Machine Learning \& Digital Tools
   in Clinical Development \textbullet\ August 3, 2026}
@@ -58,19 +59,31 @@
 % ── Abstract ──────────────────────────────────────────────────────────────────
 \begin{abstract}
 \noindent
-Component-level validation is insufficient for composed adaptive designs---trials
-in which Bayesian monitoring, sample size re-estimation (SSR), and
-response-adaptive randomization (RAR) update based on overlapping information sets
-at interim analyses.  We characterize two failure mechanisms---prior-data conflict
-and time trends---and show through simulation that they inflate Type~I error
-(T1E) at the pipeline level even when every component individually passes its
-validation check.  Under a mild conflict (2\,pp above the prior mean), T1E
-reaches 0.0771 ($+$208\% above nominal $\alpha = 0.025$); a negative control
-moving SSR to an earlier interim shows negligible attenuation, identifying
-prior-data conflict as the dominant driver.  In mechanism-isolation analysis, the two mechanisms are super-additive
-(interaction $= +0.0278$, 95\% SI excluding zero).
-Component-level calibration guarantees are not invariant under composition; the
-failure is invisible without pipeline-level evaluation.
+Efficacy thresholds for Bayesian monitoring are commonly calibrated at a single
+assumed control rate.  We show by simulation that in a two-arm Phase~II design
+with historical borrowing on the control arm, such point calibration does not
+deliver Type~I error (T1E) control across the composite null.  With the
+threshold calibrated to $\alpha = 0.025$ at the design anchor $p_0 = 0.25$
+with no time trend, we evaluate a one-dimensional slice of the null in which a
+shared time trend is active throughout.  Along that slice T1E rises
+monotonically with the common baseline rate, reaching 0.2618 at $p = 0.36$ with
+all adaptive mechanisms active.  Ablations that disable individual components while
+\emph{holding the full-design threshold fixed} show that the excess is not
+created by the adaptive components alone: with SSR and RAR both disabled, the
+monitoring rule under that threshold still yields 0.1170 at $p = 0.30$.
+Because those ablations are not separately calibrated, we report them as
+ablations rather than as a decomposition of attributable shares.  Sample size
+re-estimation (SSR) and response-adaptive randomization (RAR) modify the
+excess substantially and nonlinearly---RAR has
+essentially no marginal effect without SSR ($-0.0018$) but adds $+0.0314$ when
+SSR is active (interaction $+0.0332$, 95\% SI $[+0.0144, +0.0520]$).  Across the
+evaluated null, the fixed-$\gamma^*$ difference between the full design and the
+SSR-and-RAR-disabled ablation \emph{reverses sign}, from $-0.0212$ at
+$p = 0.20$ to $+0.0886$ at $p = 0.36$.  Departure from the
+calibration anchor and time trends are themselves super-additive (interaction
+$+0.0288$, 95\% SI $[+0.0136, +0.0440]$).  The grid demonstrates a control
+failure but does not locate the supremum.  Operating characteristics should be
+evaluated across the composite null rather than at a single assumed rate.
 \end{abstract}
 
 \vspace{4pt}\hrule\vspace{10pt}
@@ -78,33 +91,35 @@ failure is invisible without pipeline-level evaluation.
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Introduction}
 
-The accelerating adoption of AI-assisted clinical trial design software has
-created a validation gap.  Statisticians and sponsors now routinely use
-computational tools to specify priors, simulate operating characteristics, and
-prepare regulatory submissions---yet most tools lack systematic validation against
-reference implementations, cannot guarantee reproducibility under stochastic
-simulation, and fail to account for the behavior of combined adaptive mechanisms.
+Computational tools are used to specify priors, simulate operating
+characteristics and prepare regulatory submissions.  In the workflow examined
+here, the checks applied to such a tool are component-level and numerical: each
+adaptive mechanism is compared against a reference implementation in isolation.
+This paper asks what those checks do and do not establish about the error rate
+of the assembled design.  We make no claim about how widespread that workflow
+is; the question is what follows from it where it is used.
 
-The FDA's January 2026 draft guidance on Bayesian adaptive designs
-\citep{fda_bayesian_2026} makes this gap concrete.  For the first time, the
-guidance explicitly requires sponsors to document operating characteristics under
-realistic simulation scenarios, pre-specify how prior-data conflict will be
-handled, and demonstrate that Bayesian adaptive designs meet frequentist operating
-characteristic targets.  These requirements expose a specific deficiency: most
-validation practice operates at the \emph{component level}, evaluating each
-adaptive mechanism in isolation, without examining the behavior of the composed
-system.
+The FDA's January 2026 draft guidance on the use of Bayesian methodology in
+clinical trials \citep{fda_bayesian_2026} is directly relevant.  The guidance recommends that
+sponsors document operating characteristics under realistic simulation
+scenarios, pre-specify how prior-data conflict will be handled, and evaluate
+whether Bayesian adaptive designs meet frequentist operating characteristic
+targets.  (It is a draft guidance containing nonbinding recommendations, and we
+describe it as such throughout.)  These recommendations bear on a specific
+practice, and one this paper examines directly: an efficacy threshold
+calibrated at a single assumed control rate, with that single point then
+treated as evidence of error control.
 
-This paper makes two claims.  First, the methodological claim:
-\textbf{component-level validation is insufficient for composed adaptive
-designs}.  When multiple adaptive mechanisms update based on overlapping
-information sets at interim analyses, the operating characteristics of the
-composed system cannot be guaranteed by calibrating each component independently.
-Second, the empirical finding: in the specific design class studied here,
-\textbf{prior-data conflict is the dominant source of Type~I error inflation},
-amplified by SSR and RAR but not primarily caused by the timing of any single
-shared interim.  We state the first claim formally, demonstrate both through
-simulation, and use a negative control to identify the primary driver.
+This paper makes two claims, at two levels.  The primary claim is about
+\textbf{robustness}: an efficacy threshold calibrated at one assumed control
+rate does not deliver Type~I error control across the composite null.  The secondary claim is about \textbf{composition}: SSR and RAR modify
+that excess substantially and nonlinearly, and the direction of their combined
+effect depends on where in the null the design is evaluated.
+
+Both claims are demonstrated by simulation over a grid of common baseline
+rates.  We are explicit about what such a grid can and cannot establish: it
+exhibits points at which control fails, but it does not locate or estimate the
+supremum of the Type~I error over the null.
 
 We present Zetyra as the reproducible evaluation infrastructure for this work.
 The platform is evidence and infrastructure for the argument; it is not the
@@ -113,125 +128,108 @@ argument itself.
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Background}
 
-\subsection{The Validation Gap in Clinical Trial Design Software}
+\subsection{What Component-Level Checks Establish}
 
-Validation of clinical trial design software is inconsistently defined in
-practice.  In regulatory submissions, sponsors typically document that design
-outputs were computed using a named software package, sometimes with cross-checks
-against published values.  This informal approach does not constitute systematic
-benchmarking: it does not establish maximum numerical deviation across the full
-range of design parameters, does not guarantee reproducibility under stochastic
-methods, and does not account for the behavior of multiple adaptive components
-operating jointly.  The FDA January 2026 draft guidance raises the standard explicitly:
-operating characteristics must be evaluated under realistic scenarios---including
-prior-data conflict, misspecification, and time trends---and must be documented
-in a reproducible, auditable manner.
+``Validation'' of clinical trial design software is not a term with a single
+agreed meaning.  Where it amounts to documenting that design outputs were
+computed with a named package, with cross-checks against published values, it
+does not establish maximum numerical deviation across the range of design
+parameters, does not guarantee reproducibility under stochastic methods, and
+does not account for the behaviour of multiple adaptive components operating
+jointly.  The FDA January 2026 draft guidance raises the standard explicitly:
+operating characteristics should be evaluated by comprehensive simulation over
+plausible assumptions---the guidance discusses prior-data conflict explicitly
+and calls for scenarios spanning plausible values of design inputs, including
+the background rate of the endpoint---and documented reproducibly.
 
-\subsection{Composed Adaptive Designs and the Shared Information Problem}
+The simulations here are implemented using Zetyra, a validated browser-based
+calculator suite for adaptive and Bayesian trial design.  Each adaptive
+component is benchmarked against established reference engines (gsDesign,
+RBesT, pwr, scipy) and published trial outcomes; the framework is described in
+Appendix~\ref{app:platform}.  All stochastic methods use fixed random seeds,
+and the simulation source that produced every number reported here is released
+with the paper (see Acknowledgements).  Fixed seeds alone do not confer exact
+reproducibility without matching package versions, which are recorded in the
+session information of the simulation document.
+
+\subsection{Composed Adaptive Designs and Marginal Calibration}
 
 \textbf{Definition.}  A \emph{composed adaptive design} is a design in which two
-or more adaptive mechanisms update based on overlapping information sets at one or
-more interim analyses.  Formally, let $\Ft$ denote the information set available
-at interim time~$t$.  A design is composed in the relevant sense if there exist
-adaptive mechanisms $\Di$ and $\Dj$ such that $\Fi \cap \Fj \neq \emptyset$ for
-some $t$.
+or more adaptive mechanisms read the same interim data before the final
+analysis.  In the design studied here, Bayesian monitoring, the SSR trigger and
+the RAR allocation rule all compute from the accumulated responses at interim
+looks.
 
-This definition distinguishes designs where interaction effects are mechanistically
-expected from designs with staggered or informationally independent updates.  The
-standard validation approach calibrates each component independently under its
-marginal model.  The implicit assumption---that joint control follows from marginal
-control---fails when components share an interim information set.
+We do not formalise this as a set-theoretic condition on information sets.
+Writing $\Fi \cap \Fj \neq \emptyset$ would not distinguish anything: for
+sigma-fields the intersection always contains $\emptyset$ and $\Omega$, so the
+condition holds trivially for any pair.  Nor is the converse available---
+informational independence does not by itself guarantee that error control
+survives adaptation.
 
-\subsection{Evaluation Infrastructure}
-
-The simulations in this paper are implemented using Zetyra, a validated
-browser-based calculator suite for adaptive and Bayesian clinical trial design.
-Each adaptive component is validated against established reference engines
-(gsDesign, RBesT, pwr, scipy) and published trial outcomes; the full validation
-framework is described in Appendix~\ref{app:platform}.  All stochastic methods
-use fixed random seeds, and the complete simulation code is publicly available.
-
-% ─────────────────────────────────────────────────────────────────────────────
-\section{Composed Design Evaluation}
-
-\subsection{Formal Argument: Why Marginal Calibration Fails}
-
-Let $\phi(X)$ denote the final rejection rule (Bayesian monitoring), mapping
-observed data $X$ to $\{0, 1\}$, calibrated under the data-generating law
-$P_0$ (the null) so that $P_0\!\bigl(\phi(X) = 1\bigr) \leq \alpha$.  Let
-$A_1(X_t), A_2(X_t)$ denote adaptation rules---SSR and RAR respectively---that
-alter sample size or allocation based on interim data $X_t$ but do not
-themselves reject $H_0$.  Each adaptation rule is validated independently
-(e.g., SSR preserves conditional power targets; RAR tracks
-$P(\theta_e > \theta_c)$ within tolerance).
-
-The composed decision rule is
-$\phi_{\text{comp}}(X) = \phi\!\bigl(X;\, A_1(X_t),\, A_2(X_t)\bigr)$: the
+The relevant observation is weaker and purely negative.  Let $\phi(X)$ denote
+the final rejection rule (Bayesian monitoring), and let $A_1(X_t)$, $A_2(X_t)$
+denote the adaptation rules---SSR and RAR---which alter sample size or
+allocation based on interim data $X_t$ but do not themselves reject $H_0$.
+Each is validated independently (SSR preserves conditional-power targets; RAR
+tracks $P(\theta_e > \theta_c)$ within tolerance).  The composed decision rule
+is $\phi_{\text{comp}}(X) = \phi\!\bigl(X;\, A_1(X_t),\, A_2(X_t)\bigr)$: the
 final rejection indicator evaluated on data whose sample size and allocation
-were shaped by the adaptation rules.  The standard validation approach
-calibrates $\phi$ under fixed design parameters and validates each $A_j$
-independently.  The implicit assumption---that
-$P_0\!\bigl(\phi_{\text{comp}}(X) = 1\bigr) \leq \alpha$ follows from marginal
-calibration---holds when the adaptation rules operate on informationally
-independent subsets of $X$.  When they share $\Ft$, this guarantee need not
-hold:
-\[
-  P_0\!\bigl(\phi_{\text{comp}}(X) = 1\bigr) \text{ may exceed } \alpha
-  \quad \text{when} \quad \Fi \cap \Fj \neq \emptyset.
-\]
-The formal condition identifies when pipeline-level inflation is
-\emph{possible}; the dominant source in practice depends on the design.  In
-the class studied here, prior-data conflict is the primary driver, amplified
-by but not contingent on the specific interim at which adaptive decisions
-co-occur (Section~5.3).  Figure~\ref{fig:composed} illustrates the structure.
+were shaped by the adaptation rules.  The standard approach calibrates that
+composed rule at a single point, choosing $\gamma^*$ so that
+$P_{p_0,\,\delta=0}\!\bigl(\phi_{\text{comp}}(X) = 1\bigr) \approx \alpha$ at
+one anchor rate with no trend.  That establishes the error rate at that point
+and nowhere else: it places no bound on
+$P_{p,\,\delta}\!\bigl(\phi_{\text{comp}}(X) = 1\bigr)$ for other $(p, \delta)$
+in the null.  The component benchmark checks add no such bound either, since
+none of them evaluates an error rate.
 
-\begin{figure}[htb]
+\textbf{Calibrating each component under its own marginal model, and the
+composed rule at a single null point, places no constraint on the error rate of
+the composed rule elsewhere in the null.}  This is a statement about what those
+checks fail to establish, not a condition under which inflation must occur.
+Whether it occurs, in which direction and by how much are empirical questions,
+which is why the remainder of the paper is a simulation study.
+Figure~\ref{fig:composed} illustrates the structure.
+
+
+
+\textit{How this grid should be read.}  Three limits govern it, and they apply
+equally to every result that follows.  We do not claim a crossing point: the
+effects at $p = 0.25$ ($-0.0070$) and $p = 0.27$ ($+0.0078$) are each within
+Monte Carlo error, so the sweep establishes the direction change, not its
+location.  The SSR rule is a pooled one-sample conditional-power test against
+$p_0 = 0.25$ while the estimand is the two-arm comparison, so because SSR
+activates near that same value the apparent reversal location may partly
+reflect the rule's construction.  And uniform Type~I error control over the
+composite null requires T1E $\leq \alpha$ at \emph{every} point in it: the grid contains multiple
+clear violations and therefore \emph{demonstrates} failure, but it does not
+locate the supremum, establishing only that it is at least 0.2618 --- the
+largest value observed, at the upper grid boundary, where the curve was still
+rising.
+
+\begin{figure}[!t]
   \centering
   \includegraphics[width=\textwidth]{figures/Figure1_Composed_Design.png}
   \caption{Composed adaptive design: three components (Bayesian monitoring,
-  single-arm SSR, RAR), each individually validated (\textsc{pass}), converge on a
-  shared information set $\mathcal{F}_t$ at interim.
-  The composed decision pipeline inherits the dependence structure, and
-  $P_0(\phi_{\text{comp}}(X) = 1)$ can differ from $\alpha$ when
-  $\mathcal{F}_i \cap \mathcal{F}_j \neq \emptyset$.
-  The negative control (SSR moved to $n=30$) shows negligible attenuation,
-  indicating that prior-data conflict---not SSR timing---is the dominant driver.}
+  single-arm SSR, RAR), each passing its numerical benchmark check
+  (\textsc{pass}), all reading the same interim data before the final analysis.
+  Marginal calibration of the monitoring rule and separate checks of the
+  adaptation rules place no constraint on
+  $P_0(\phi_{\text{comp}}(X) = 1)$.  Holding $\gamma^*$ fixed at the value calibrated
+  for the full design, switching SSR and RAR off does not restore control, and
+  the mechanisms interact rather than combining additively.  These are
+  fixed-threshold ablations, not separately calibrated designs, and therefore
+  do not apportion the excess among components.}
   \label{fig:composed}
 \end{figure}
 
-\subsection{Mechanism 1: Prior-Data Conflict}
-
-Under mild prior-data conflict---when the current trial data are inconsistent with
-the informative historical prior---the posterior probability threshold calibrated
-under the null can be crossed more easily than the marginal calibration
-anticipates.  The Bayesian monitoring becomes anti-conservative at the pipeline
-level.  This mechanism is activated specifically when the prior is informative and
-the information set at the interim includes contributions from both current and
-historical data.
-
-\subsection{Mechanism 2: Time Trends Under Adaptive Randomization}
-
-Response-adaptive randomization shifts allocation toward better-performing arms
-based on accumulating outcome data.  Under moderate time trends---drift in baseline
-rates due to changes in standard of care, enrollment patterns, or site
-effects---RAR introduces systematic imbalance that biases the final analysis.  This
-mechanism is not detectable at the RAR component level, where validation typically
-assumes time-stationarity.
-
-\subsection{The Interaction That Drives Type I Error Inflation}
-
-When prior-data conflict and time trends co-occur in a composed pipeline, their
-effects reinforce each other at interim looks.  The specific interaction: the SSR
-trigger and the Bayesian posterior update both compute from the same interim data
-$\mathcal{F}_{45}$.  The SSR rule increases sample size in response to an estimate
-that has already been distorted by the time trend; the posterior update is
-anti-conservative due to prior-data conflict.  This co-occurrence is invisible to
-component-level validation.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Simulation Study}
 
 \subsection{Design Specification}
+\label{sec:design}
 
 We consider a class of two-arm Phase~II oncology designs with historical borrowing
 on the control arm via a MAP prior, and three co-occurring adaptive mechanisms
@@ -239,317 +237,362 @@ sharing interim information sets.
 
 The specific instance used for simulation: a two-arm Phase~II oncology design with
 historical borrowing on the control arm via a MAP prior \citep{weber_rbest}, with
-three looks at $n = 30, 45, 60$ and a final at $n \geq 90$ (post-SSR).  MAP prior:
-initial approximation Beta(6.5, 19.5) with 70\% weight (ESS~$\approx$~26, mean
-$\approx$~0.25); the simulation uses the fitted robustified mixture from RBesT
-(informative component $w = 0.589$, $a = 18.4$, $b = 53.3$, plus
-additional mixture components).  The historical cohorts ($n = 50, 40, 60$;
-response rates 26\%, 25\%, 25\%) are illustrative but representative of the
-sample sizes and inter-study variation seen in Phase~II oncology control arms.
-The fitted prior mean ($\approx 0.25$) defines the ``no conflict'' baseline;
-the ``mild'' and ``strong'' conflict scenarios ($p = 0.27, 0.30$) correspond
-to 2\,pp and 5\,pp drift above this baseline, spanning the range of plausible inter-study control-rate variation
-documented in oncology settings \citep{viele_2014,tang_2010}.
+three looks at $n = 30, 45, 60$ and a final at $n \geq 90$ (post-SSR).  The MAP
+prior is fitted with RBesT from the historical cohorts ($n = 50, 40, 60$;
+response rates 26\%, 25\%, 25\%; pooled rate $38/150 = 0.2533$) and
+robustified, giving a three-component mixture: $w = 0.5887$,
+Beta(18.403, 53.273); $w = 0.2113$, Beta(1.956, 4.703); and a flat
+$w = 0.2000$, Beta(1, 1).
 Blinded SSR at 50\% enrollment using pooled response estimation across both
 arms (``single-arm'' in the sense that the SSR decision uses only aggregate
-counts, not treatment-arm allocation), validated against \citet{lee_liu_2008}.  Thompson Sampling RAR across
-two arms, validated against analytical $P(\theta_e > \theta_c)$.  Reference trial:
-NCT03377023 \citep{nct03377023}.
+counts, not treatment-arm allocation).  The SSR calculation is checked against
+conditional-power and sample-size formulas by self-consistency, not against an
+external reference design.  Thompson Sampling RAR across two arms, benchmarked
+against analytical $P(\theta_e > \theta_c)$.  The separate
+predictive-probability monitoring component of the platform is benchmarked
+against \citet{lee_liu_2008} and \citet{saville_2014}, and additionally
+against the design and decisions reported for NCT03377023
+\citep{nct03377023}; that single-arm trial is not the reference design for the
+two-arm composed pipeline studied here.
 
-Null hypothesis: $p_e = p_c$ (no treatment effect).  Under prior-data conflict,
-both arms are generated from a common rate $p > 0.25$ while the MAP prior expects
-$p_c = 0.25$---preserving $H_0$ while introducing a conflict between the
-historical prior and the current data-generating process.
+\textit{The reference rate is ambiguous, and we name it explicitly.}  The
+threshold is calibrated at the design anchor $p_0 = 0.25$.  That anchor is not
+the mean of any prior in play: the dominant informative component has mean
+0.2568, the full robustified mixture has mean 0.3132, and the historical
+pooled rate is 0.2533.  Both scenarios evaluated below therefore lie
+\emph{below} the mixture mean.  Throughout we describe $p > 0.25$ as
+\textbf{departure of the baseline rate from the calibration anchor}, never as
+``$k$ percentage points above the prior mean''---a description that is false
+against every candidate reference.
+
+Null hypothesis: $p_e = p_c$ (no treatment effect), evaluated at a common
+baseline rate $p$ with the shared time trend active.  Both arms are generated
+from the same baseline and drift together, so $H_0$ holds throughout while the
+realised rate departs from the anchor.
 
 \textit{Clarification of the estimand.}  The rejection probabilities reported
-throughout this paper are Type~I error rates under the data-generating null
+throughout are Type~I error rates under the data-generating null
 ($p_e = p_c$), not posterior predictive error rates conditional on prior
-beliefs.  The prior-data conflict is a realistic scenario in which the
-historical prior is misspecified relative to the current trial population, but
-$H_0$ holds in the current data.  The inflated rejection probability is
-therefore frequentist Type~I error under the current-trial data-generating
-null---not a Bayesian robustness diagnostic.  This distinction matters:
-the inflation we report would lead to erroneous regulatory conclusions, not
-merely suboptimal Bayesian inference.
+beliefs.  The inflated rejection probability is frequentist Type~I error under
+the current-trial data-generating null---not a Bayesian robustness diagnostic.
 
-We evaluate two conflict scenarios:
+We evaluate two departure scenarios, each with the trend active:
 
 \begin{itemize}[noitemsep]
-  \item \textbf{Mild conflict} ($p = 0.27$, 2\,pp above prior mean): the
-    headline scenario, representative of plausible drift in historical control
-    rates.  Seed~2028.
-  \item \textbf{Strong conflict} ($p = 0.30$, 5\,pp above prior mean): a stress
-    test demonstrating that inflation scales with conflict severity.  Seed~2026.
+  \item \textbf{Mild departure} ($p = 0.27$, $+2$\,pp from the anchor).  Seed~2028.
+  \item \textbf{Strong departure} ($p = 0.30$, $+5$\,pp from the anchor): a
+    stress test.  Seed~2026.
 \end{itemize}
 
-Time trend: linear drift $\delta = 0.05$ over full enrollment in all conditions.
-Sensitivity to conflict magnitude, prior weight, trend severity, and SSR timing
-is examined in Section~5.6.
+On the scale of these departures, \citet{tang_2010} treat a
+five-percentage-point control-rate drift as clinically modest in an oncology
+simulation and report Type~I error two to four times the projected level under
+such drift; the two-point scenario is included here as a smaller sensitivity
+departure.  \citet{viele_2014} review historical-borrowing methods and the
+conditions under which current and historical control rates diverge.  Neither
+establishes an empirical 2--5 percentage-point range, and we do not claim
+one.
+Time trend: linear drift $\delta = 0.05$ over the planned enrollment horizon in
+all conditions.
 
-\textit{Note on calibration:} The efficacy threshold $\gamma^* = 0.970$ is
-selected from a grid $[0.90, 0.99]$ by 0.005 steps, yielding calibration T1E =
-0.0290 (target: 0.025).  The calibrated rate exceeds nominal $\alpha$ by
-0.004, a consequence of the coarse 0.005-step grid; the next grid point
-($\gamma^* = 0.975$) yields T1E below 0.025.  The coarse grid introduces
-small calibration error in both directions; a finer binary search is planned
-for the final paper, and all headline estimates should be rechecked under
-exact calibration.
+\textit{Monte Carlo uncertainty:} All T1E estimates carry binomial Monte Carlo
+standard errors (MCSE): $\text{SE} = \sqrt{\hat{p}(1-\hat{p})/N_{\text{sim}}}$.
+For $N = 10{,}000$: MCSE $\approx 0.0027$ at T1E $= 0.08$, $\approx 0.0033$ at
+T1E $= 0.13$.  For $N = 5{,}000$: factorial cells span MCSE 0.0045--0.0053;
+departure~$\times$~trend cells span 0.0022--0.0052.  Full MCSEs and 95\%
+simulation intervals are reported in the simulation supplement.  Sensitivity to departure magnitude, vague-component weight,
+trend severity, and SSR timing is examined in Section~\ref{sec:sens}.
 
-\subsection{Component-Level Validation}
+\textit{Note on calibration:} The efficacy threshold is obtained by grid-free
+binary search rather than from a coarse grid, giving $\gamma^* = 0.96596$ with
+in-sample T1E $= 0.0250$ (MCSE 0.0011, $N = 20{,}000$) at the design anchor
+$p_0 = 0.25$ with no trend.  This is \emph{not} exact calibration: binary
+search targets the empirical sample exactly, not the population Type~I error,
+and an independent calibration sample would be required to verify
+out-of-sample behaviour.  It does remove the residual error left by the earlier
+0.005-step grid, which had placed calibration at 0.0290 and so charged that
+discrepancy to the scenarios when inflation was quoted against 0.025.
 
-Each adaptive component is individually validated.  MAP prior: maximum deviation
+
+\subsection{Component-Level Benchmark Checks}
+
+Each adaptive component is individually benchmarked.  MAP prior: maximum deviation
 from RBesT mixture = $1.78 \times 10^{-15}$ (floating-point precision).
 SSR minimality check: \texttt{ssr\_n\_target()} finds the minimum $n^*$
 satisfying $\mathrm{CP}(n^*) \geq 0.80$; verified that $\mathrm{CP}(n^*) \geq 0.80$
 and $\mathrm{CP}(n^*-1) < 0.80$ for all non-futile, non-boundary scenarios.
 RAR one-step allocation: maximum deviation from analytical
 $P(\theta_e > \theta_c)$ = 0.0036 (Monte Carlo error at $n = 100{,}000$).
-All three components pass their validation checks.
+All three components pass their benchmark checks; none of those checks
+evaluates Type~I error away from the anchor.
 
-\subsection{Composed Pipeline: Primary and Version~B Negative Control}
+\subsection{Type I Error Across the Composite Null}
+\label{sec:composite}
 
-\noindent\textbf{Version~B negative control design:}
+We begin with the sweep, because it is the result the rest of the section
+modifies.  The threshold was calibrated at a single point --- $p_0 = 0.25$
+with $\delta = 0$, no trend --- but $H_0$ here is composite: it holds whenever
+the two arms share a common response process, not only at that point.  We index
+the null by the common \emph{baseline} rate $p$; both arms start at $p$ and
+drift together under the shared time trend, so the response probability is not
+constant within a trial.  Error control is a statement about the supremum over
+that set, so a single-point evaluation cannot establish it.
+
+What follows is \textbf{a one-dimensional slice of the composite null}: every
+row fixes $\delta = 0.05$ and varies only $p$.  \emph{No row in the table is
+the calibration scenario.}  The $p = 0.25$ row shares the anchor rate but not
+the trend, so it is a different point in the null from the one at which
+$\gamma^*$ was tuned; its value should not be read against the calibration
+figure 0.0250 as though the trend were held fixed.
 
 \begin{center}
-\begin{tabular}{lcccc}
+\begin{tabular}{cccc}
 \toprule
-Design & $n=30$ & $n=45$ & $n=60$ & Final \\
+$p$ & SSR + RAR disabled & All mechanisms & Fixed-$\gamma^*$ difference \\
 \midrule
-Primary    & Monitor & Monitor + SSR & Monitor & Monitor \\
-Control~B  & Monitor + SSR & Monitor & Monitor & Monitor \\
+0.20 & 0.0336 & 0.0124 & $-0.0212$ \\
+0.22 & 0.0494 & 0.0244 & $-0.0250$ \\
+0.25 & 0.0680 & 0.0610 & $-0.0070$ \\
+0.27 & 0.0874 & 0.0952 & $+0.0078$ \\
+0.30 & 0.1160 & 0.1582 & $+0.0422$ \\
+0.33 & 0.1488 & 0.2208 & $+0.0720$ \\
+0.36 & 0.1732 & 0.2618 & $+0.0886$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \smallskip
-Monitoring is evaluated at identical sample sizes in both designs.  The only
-difference is when SSR fires relative to the monitoring looks.  This is the
-minimum change needed to remove co-occurrence at $n=45$, where conflict and trend
-effects have had more time to accumulate.
-
-\medskip
-\noindent\textbf{Calibration:} $\gamma^* = 0.970$, yielding T1E = 0.0290 under
-$H_0$ with no conflict or trend (target: $\alpha = 0.025$; coarse grid artifact
-noted in Section~5.6).
-
-\medskip
-\noindent\textbf{Conflict severity comparison} ($n = 10{,}000$ replications each):
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-Scenario & $p$ (both arms) & T1E & vs.\ nominal \\
-\midrule
-Calibration (no conflict, no trend) & 0.25 & 0.0290 & --- \\
-Mild conflict + trend (headline)    & 0.27 & \textbf{0.0771} & $+$208\% \\
-Strong conflict + trend (stress test) & 0.30 & 0.1274 & $+$410\% \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\smallskip\noindent
-\textit{Monte Carlo uncertainty:} All T1E estimates carry binomial Monte Carlo
-standard errors (MCSE): $\text{SE} = \sqrt{\hat{p}(1-\hat{p})/N_{\text{sim}}}$.
-For $N = 10{,}000$: MCSE $\approx 0.0027$ at T1E $= 0.08$, $\approx 0.0033$
-at T1E $= 0.13$.  For $N = 5{,}000$ (factorial, mechanism isolation):
-MCSE $\approx 0.0038$--$0.0048$.  Full MCSEs and 95\% simulation intervals
-are reported in the simulation supplement.
-
-\smallskip
-Under the mild conflict scenario, pipeline-level T1E reaches \textbf{0.0771}
-(MCSE = 0.0027), an absolute inflation of $+0.0521$ above the nominal
-$\alpha = 0.025$ ($+$208\%).
-This is a realistic conflict scenario: a 2\,pp drift in historical control rates
-is well within the range of inter-study variation in oncology.  All three
-components individually pass their validation checks; the inflation is invisible
-to component-level evaluation.
-
-The strong conflict scenario ($p = 0.30$, 5\,pp drift, T1E = 0.1274) serves as
-a stress test, demonstrating that inflation scales monotonically with conflict
-severity.
-
-\medskip
-\noindent\textbf{Version~B negative control} (SSR at $n=30$, same conflict + trend; seed 2027):
-
-\begin{itemize}[noitemsep]
-  \item T1E = \textbf{0.1266} (strong conflict), attenuation = 0.8\% of primary inflation
-\end{itemize}
-
-\smallskip
-The results are summarised in Figure~\ref{fig:results}.  The minimal attenuation when SSR is moved from $n=45$ to $n=30$ is itself
-informative: the inflation is \emph{not} primarily driven by SSR--monitor
-co-occurrence at a specific interim, but rather by the MAP prior conflict
-persistently biasing $P(p_e > p_c)$ at \emph{every} monitoring look.  SSR
-amplifies the effect through extended sample size (more monitoring events), not
-through its timing relative to a specific posterior update.  The primary
-driver is persistent MAP prior anti-conservatism under conflict, amplified by
-the SSR--RAR composition.
+Two readings follow.  First, \textbf{at the full-design threshold, disabling
+SSR and RAR does not restore control}: with both switched off, T1E still rises
+from 0.0336 at $p = 0.20$ to 0.1732 at $p = 0.36$.  That column is the same fixed-threshold ablation used
+throughout (Section~\ref{sec:factorial}) --- it carries $\gamma^*$, which was calibrated
+with SSR and RAR active, so it sits near 0.05 at the anchor rather than at
+0.025.  Read it as ``the design with the adaptive components switched off,
+threshold unchanged'', not as a calibrated monitoring-only design.  Second,
+\textbf{at fixed $\gamma^*$, enabling SSR and RAR lowers T1E at low $p$ and
+raises it at high $p$}: the difference runs from $-0.0212$ at $p = 0.20$ to
+$+0.0886$ at $p = 0.36$, reversing sign across the range.
 
 \begin{figure}[htb]
   \centering
-  \includegraphics[width=0.90\textwidth]{figures/results-plot-1.png}
-  \caption{Pipeline-level Type~I error across three scenarios: calibration (no
-  conflict, no trend), primary (SSR co-occurs with monitoring at $n=45$, shared
-  $\mathcal{F}_{45}$), and Version~B negative control (SSR at $n=30$, no
-  co-occurrence at $n=45$).  Dashed red line = nominal $\alpha = 0.025$.  All
-  three components individually pass validation; inflation is invisible to
-  component-level evaluation.}
-  \label{fig:results}
+  \includegraphics[width=0.90\textwidth]{figures/composite-null-plot-1.png}
+  \caption{Type~I error across the composite null, indexed by the common
+  baseline rate $p$.  Both arms start at $p$ and drift together under a shared
+  time trend ($\delta = 0.05$), so the response probability rises with
+  enrollment and is not constant within a trial.  The grey series holds the full-design threshold with SSR and RAR disabled; it exceeds nominal across
+  essentially the whole range.  Adding SSR and RAR (dark green) lowers Type~I
+  error at small $p$ and raises it at large $p$.  Dashed red line = nominal
+  $\alpha = 0.025$.}
+  \label{fig:composite}
 \end{figure}
 
-\subsection{Factorial Decomposition: SSR $\times$ RAR}
 
-Four designs (SSR $\times$ RAR, all with conflict + trend) decompose the
-inflation:
+\subsection{Fixed-Threshold Factorial Ablation: SSR $\times$ RAR}
+\label{sec:factorial}
+
+Four designs (SSR $\times$ RAR), all at $p = 0.30$ with the trend active:
 
 \begin{center}
 \begin{tabular}{lcc}
 \toprule
-Effect & Estimate & Direction \\
+Condition & T1E & MCSE \\
 \midrule
-$\Delta_\text{SSR}$ & $+0.0128$ & SSR inflates T1E \\
-$\Delta_\text{RAR}$ & $+0.0124$ & RAR inflates T1E \\
-$\Delta_\text{interaction}$ & $-0.0102$ & Slightly sub-additive \\
+Bayesian monitoring only & 0.1170 & 0.0045 \\
+$+$ SSR only             & 0.1348 & 0.0048 \\
+$+$ RAR only             & 0.1152 & 0.0045 \\
+$+$ SSR and RAR          & 0.1662 & 0.0053 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \smallskip
-Under H$_0$ with prior-data conflict, both SSR and RAR independently inflate
-T1E.  SSR contributes by extending sample size ($\Delta_\text{SSR} = +0.0128$),
-giving more monitoring events at which the anti-conservative posterior can fire.
-RAR contributes by shifting allocation based on biased interim estimates
-($\Delta_\text{RAR} = +0.0124$).  The slightly sub-additive interaction
-($\Delta_\text{interaction} = -0.0102$; propagated MCSE $\approx 0.009$)
-is within Monte Carlo noise and should not be over-interpreted; at this
-replication count the sign is not distinguishable from zero.  The result is
-consistent with approximately additive contributions from SSR and RAR,
-both drawing from the same prior-data conflict signal.
+We report the four cell values, not only the contrasts.
 
-\subsection{Mechanism Isolation: Prior-Data Conflict $\times$ Time Trend}
+\textit{These are ablations at a fixed threshold, not a decomposition.}
+$\gamma^*$ was calibrated with SSR and RAR \emph{active}
+(Section~\ref{sec:design}).  The three ablation cells disable one or both
+components while retaining that threshold, so they are not themselves
+calibrated to $\alpha$: with SSR and RAR disabled, the monitoring rule under
+$\gamma^*$ returns approximately 0.05 at the anchor with no trend, twice
+nominal, before any departure or trend is introduced.  Part of the 0.1170
+observed at $p = 0.30$ is therefore attributable to applying a threshold tuned
+for a different design.  We accordingly do not report attributable shares, and
+the reader should not read the baseline cell as ``the excess caused by
+monitoring''.  What the row does establish is weaker and still relevant:
+disabling both adaptive components does not restore control.
 
-A 2$\times$2 experiment (conflict $\times$ trend) with primary design settings:
+The contrasts are $\Delta_\text{SSR} = +0.0178$, $\Delta_\text{RAR} = -0.0018$,
+and $\Delta_\text{interaction} = +0.0332$ (propagated MCSE 0.0096, 95\% SI
+$[+0.0144, +0.0520]$).  The interaction is positive and its interval excludes
+zero; it was repeated with a fresh seed in the same R implementation (73028,
+$N = 3{,}000$ per cell), giving $+0.0343$, 95\% SI $[+0.0101, +0.0585]$.  An
+independent Python reimplementation gave a smaller estimate, $+0.0098$, with an
+interval containing zero; the magnitude therefore rests on the R runs.
+
+Factorial interaction is symmetric, so we state it in the form that is easiest
+to interpret: \textbf{RAR has essentially no marginal effect without SSR
+($-0.0018$) but increases T1E by $+0.0314$ when SSR is present}; equivalently,
+the SSR effect grows from $+0.0178$ to $+0.0510$ under RAR.  A plausible
+mechanism is that SSR extends enrollment, giving RAR more time to accumulate
+allocation imbalance, but the present design does not isolate this.
+
+\subsection{Baseline-Rate Departure $\times$ Time Trend}
+\label{sec:factors}
+
+A 2$\times$2 experiment (departure $\times$ trend) with primary design settings.
+We label this a factor-crossing experiment rather than mechanism isolation:
+both factors feed the monitoring rule, the SSR trigger and the RAR allocation
+rule simultaneously, and the design does not separate those channels.
 
 \begin{center}
 \begin{tabular}{lcc}
 \toprule
 Condition & T1E & vs.\ calibration \\
 \midrule
-Neither (calibration, seed 4000) & 0.0292 & --- \\
-Conflict only & 0.0850 & $+0.0558$ \\
-Trend only & 0.0514 & $+0.0222$ \\
-Both (primary) & 0.1350 & $+0.1058$ \\
+Neither (calibration) & 0.0240 & --- \\
+Departure only & 0.0894 & $+0.0654$ \\
+Trend only & 0.0650 & $+0.0410$ \\
+Both (primary) & 0.1592 & $+0.1352$ \\
 \midrule
-Additive prediction & 0.1072 & \\
-Interaction term & $+0.0278$ & \\
+Additive prediction & 0.1304 & \\
+Interaction term & $+0.0288$ & \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \smallskip
-Both mechanisms independently inflate T1E in the correct direction.
-Prior-data conflict alone produces substantial inflation ($+0.0558$): the MAP
-prior persistently underestimates the control arm, biasing the posterior
-comparison at every monitoring look.  Time trends alone contribute $+0.0222$
-through RAR allocation imbalance.  Crucially, the interaction term is
-\emph{positive} ($+0.0278$; propagated MCSE $\approx 0.009$, 95\% SI
-$[+0.010, +0.046]$, excluding zero): the observed T1E under both mechanisms
-(0.1350) exceeds the additive prediction (0.1072), demonstrating
+Both factors independently raise T1E.  Departure from the anchor alone
+produces the larger effect ($+0.0654$): the control prior sits away from the
+realised rate, biasing the posterior comparison at every monitoring look.
+The trend alone contributes $+0.0410$.  Both cells here use the full design, so
+unlike the ablations of Section~\ref{sec:factorial} they share a common
+calibrated baseline and the contrasts are internally consistent.
+
+\textit{There is a direct trend channel that does not involve RAR, but it is
+smaller than a naive comparison suggests.}  With SSR and RAR disabled and the
+full-design threshold retained, T1E at the anchor rises from approximately
+0.05 without the trend to 0.0680 with it---an increase of roughly $+0.012$.
+The correct contrast is against that ablation's own no-trend value, not against
+the nominal 0.025, because the ablation is not calibrated at nominal
+(Section~\ref{sec:factorial}).  So a direct channel exists---the trend moves the
+realised rate away from the anchor over the enrollment period, which affects
+the monitoring rule---but it does not account for the whole trend effect in the
+full pipeline.  Departure and trend feed the SSR trigger and the RAR allocation
+rule as well.  Isolating an RAR-specific channel would require a
+trend~$\times$~RAR factorial, which we did not run.
+
+The interaction term is \emph{positive} ($+0.0288$; propagated MCSE 0.0077, 95\% SI
+$[+0.0136, +0.0440]$, excluding zero): the observed T1E under both mechanisms
+(0.1592) exceeds the additive prediction (0.1304), demonstrating
 \textbf{super-additivity} (Figure~\ref{fig:mechanism}).
-The two mechanisms amplify each other beyond the sum of their individual
-contributions.  This is the key finding: in composed adaptive designs under
-realistic perturbations, the inflation is not merely additive---it is driven by
-the interaction between miscalibrated priors and adaptive allocation under time
-trends.
+
+Two caveats attach to this interaction.  It is a risk-difference interaction at
+the specific factor levels evaluated, not a scale-free mechanistic claim.  And
+because drift is anchored to the planned horizon $n_{\text{base}} = 90$, a
+trial expanded to $n = 150$ accrues total drift of
+$0.05 \times 149/89 \approx 0.084$ rather than 0.05; the interaction therefore
+includes the additional secular-trend exposure created by extending enrollment.
+That is coherent---a longer trial spans more calendar time---but it should be
+reported as such, and a fixed-terminal-drift specification would separate the
+two channels.
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.90\textwidth]{figures/mechanism-isolation-1.png}
-  \caption{Mechanism isolation: 2$\times$2 experiment separating prior-data
-  conflict and time trends.  Each mechanism independently inflates Type~I error;
-  their joint effect (0.1350, dark green) substantially exceeds the additive
-  prediction (0.1072, dotted line), demonstrating \textbf{super-additivity}
-  (interaction term $= +0.0278$).  Dashed red line = nominal $\alpha = 0.025$.}
+  \caption{2$\times$2 crossing of baseline-rate departure from the calibration
+  anchor and time trend.  Each factor independently raises Type~I error;
+  their joint effect (0.1592, dark green) exceeds the additive
+  prediction (0.1304, dotted line), demonstrating \textbf{super-additivity}
+  (interaction term $= +0.0288$, 95\% SI $[+0.0136, +0.0440]$).
+  Both factors feed the monitoring rule, the SSR trigger and the RAR
+  allocation rule simultaneously; this experiment crosses them but does not
+  isolate those channels.
+  Dashed red line = nominal $\alpha = 0.025$.}
   \label{fig:mechanism}
 \end{figure}
 
-\subsection{Sensitivity Analysis}
+\subsection{Sensitivity Analyses}
+\label{sec:sens}
 
-The mild conflict scenario ($p = 0.27$, T1E = 0.0771) is the headline result;
-the following sweeps use the strong conflict parameterisation ($p = 0.30$) to
+The following sweeps use the strong departure parameterisation ($p = 0.30$) to
 characterize mechanism sensitivity across a wider range.
 
 \begin{itemize}[noitemsep]
-  \item \textbf{Conflict severity} ($p \in \{0.25, 0.27, 0.30\}$): T1E increases
-    monotonically from 0.0290 (no conflict) to 0.0771 ($+2$\,pp) to 0.1274
-    ($+5$\,pp), with no direction reversal.
-  \item \textbf{Prior weight} (0--90\%): inflation monotone increasing; T1E
-    ranges 0.1144--0.1338 under strong conflict, no reversal.
-  \item \textbf{Time trend} $\delta$ (0--15\%): inflation monotone increasing;
-    T1E ranges 0.0858--0.2166, no reversal.
+  \item \textbf{Departure severity}, at constant trend
+    ($p \in \{0.25, 0.27, 0.30\}$, all with $\delta = 0.05$): T1E increases
+    monotonically, 0.0610 $\to$ 0.0952 $\to$ 0.1582, with no direction
+    reversal.
+  \item \textbf{Vague-component weight} (0--90\%): larger weight on the flat
+    robustify component means less borrowing; T1E declines monotonically, with
+    no reversal.
+  \item \textbf{Time trend} $\delta$ (0--15\%): T1E monotone increasing, no reversal.
+  \item \textbf{SSR timing, Version~B} (SSR moved from $n = 45$ to $n = 30$,
+    strong departure with trend; seed 2027; $N = 10{,}000$): T1E $= 0.1493$
+    against 0.1580 for the primary design.  We report the observed difference
+    only.  Moving SSR also changes the data on which re-estimation is computed,
+    and therefore the realised final-$N$ distribution, so timing is confounded
+    with its consequences for final $N$ and the difference does not isolate a
+    timing effect.
   \item \textbf{SSR trigger timing} ($n_\text{SSR} \in \{20, 30, 40, 45, 55, 60\}$):
-    T1E ranges 0.1206--0.1346 under corrected H0 ($p_e = p_c = p_{\text{conflict}}$);
-    inflation persists across all timing values with no direction reversal,
-    consistent with prior-data conflict rather than SSR timing as the primary driver.
+    T1E varies only modestly across timing values with no direction reversal,
+    indicating limited sensitivity to trigger timing within the evaluated
+    range.
 \end{itemize}
-
-\smallskip\noindent\textit{Calibration note:} $\gamma^* = 0.970$ is selected
-from a grid with step 0.005, yielding calibration T1E = 0.0290 rather than the
-nominal 0.025 target.  The calibrated rate is slightly anti-conservative due to
-the coarse grid (the next grid point at 0.975 undershoots); a finer binary
-search is planned for the final paper.  Headline estimates should be
-rechecked under exact calibration.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}
 
 \subsection{Regulatory Implications}
 
-\textbf{Component-level calibration guarantees are not invariant under composition
-when adaptive mechanisms share interim information sets.}  Therefore, regulatory
-evaluation of operating characteristics must be performed at the level of the full
-decision pipeline.
+\textbf{An efficacy threshold calibrated at a single assumed control rate need
+not control Type~I error elsewhere in the composite null.}  Evaluation of
+operating characteristics should therefore span a range of plausible control
+rates rather than a single anchor.
 
-The FDA January 2026 draft guidance requires simulation-based operating characteristics under
-realistic scenarios.  The present finding specifies what ``realistic'' must
-include: the full composed pipeline, under prior-data conflict and time trends,
-not a sequence of isolated component evaluations.
+The FDA January 2026 draft guidance recommends simulation-based operating
+characteristics under realistic scenarios.  The present finding suggests what
+``realistic'' should include for this design class: a grid over the composite
+null, with departure from the calibration anchor and time trends crossed rather
+than evaluated separately.  The guidance also recommends pre-specifying how
+prior-data conflict will be handled; the simulation framework released with
+this paper provides a reproducible template for carrying that evaluation out
+over the composite null.
 
-\subsection{Connection to FDA 2026 Bayesian Draft Guidance}
-
-The guidance requires pre-specification of how prior-data conflict will be handled
-and documentation of operating characteristics across realistic simulation
-scenarios.  The prior-data conflict mechanism characterized in Section~4.2
-directly corresponds to the conflict-sensitivity evaluation the guidance calls for.
-The simulation framework provides a reproducible template for meeting this
-requirement at the pipeline level.
 
 \subsection{What Sponsors Should Do Differently}
 
-Two practical changes, neither requiring new methodology: (1)~evaluate operating
-characteristics at the pipeline level, simulating the full composed decision
-pathway rather than component-wise; (2)~include prior-data conflict and time trend
-scenarios as standard sensitivity conditions.
+Three practical changes, none requiring new methodology: (1)~evaluate operating
+characteristics over a grid of plausible control rates, not at a single assumed
+anchor; (2)~report component ablations alongside the composed design, stating whether
+each ablation is separately calibrated --- an ablation that inherits the full
+design's threshold shows whether disabling a component restores control, not
+how much of the excess that component caused; (3)~cross departure and time-trend scenarios rather
+than evaluating them separately, since their interaction is positive.
 
 \subsection{Mitigation Strategies}
 
 The failure mode identified here admits several practical safeguards, none
 requiring new methodology.  First, \emph{robust mixture priors}: increasing the
 vague component weight reduces prior influence and narrows the gap between the
-historical prior and the current data, directly attenuating the conflict
+historical prior and the current data, directly attenuating the
 mechanism.  Second, \emph{dynamic borrowing} or \emph{commensurate priors}:
-methods that automatically down-weight the historical prior when conflict is
+methods that automatically down-weight the historical prior when disagreement is
 detected can reduce anti-conservatism at the pipeline level, though they must
-themselves be validated under composition.  Third, \emph{conflict diagnostics}:
-pre-specified checks (e.g., tail-area probabilities comparing the interim
-likelihood to the prior predictive) can trigger protocol-defined fallback
-thresholds when conflict exceeds a pre-specified bound.  Fourth,
+themselves be validated under composition.  Third, \emph{disagreement diagnostics}:
+pre-specified checks comparing the interim likelihood to the prior predictive
+can trigger protocol-defined fallback thresholds when disagreement exceeds a
+pre-specified bound.  \citet{qian_matthews_fms_ops} set out such a check in a
+form a sponsor can commit to in the protocol and statistical analysis plan,
+together with the reporting artefact needed to audit it.  We cite that work as
+a template for auditable pre-specification, not as an established remedy for
+the present design: its calibration is for Normal-mean settings, and a binary
+MAP-mixture design would need its own statistic and its own calibration.  Fourth,
 \emph{pipeline-level recalibration}: re-tuning the efficacy threshold
-$\gamma^*$ under conflict and trend scenarios, rather than under the
-no-conflict null alone, directly addresses the inflation at its source.
+$\gamma^*$ over a grid of baseline rates with the trend active, rather than at the
+anchor alone, directly addresses the inflation at its source.
 Finally, \emph{pre-specified sensitivity thresholds}: regulatory submissions
-can include a pre-defined maximum T1E under conflict scenarios (e.g., T1E
-$\leq 0.05$ under 2\,pp conflict), making the design's robustness envelope
+can include a pre-defined maximum T1E over a stated range of baseline rates
+(e.g., T1E $\leq 0.05$ for departures up to $+2$\,pp from the anchor), making the design's robustness envelope
 explicit and auditable.
 
 \emph{Caveat:} Each mitigation strategy itself alters the composed pipeline's
@@ -558,39 +601,80 @@ not assumed to restore nominal control based on component-level reasoning alone.
 
 \subsection{Limitations and Future Work}
 
-This paper establishes the failure mode through simulation in a specific class of
-designs.  A closed-form characterization of inflation magnitude as a function of
-design parameters is ongoing work.  The mechanism isolation simulations preserve
-H0 ($p_e = p_c = p_{\text{conflict}}$) throughout; extension to alternative
-null specifications (e.g., varying conflict magnitude under H0) is future work.  A
-forthcoming collaboration on the Analysis of Credibility (AnCred) framework
-\citep{matthews_forthcoming} will provide a principled approach to prior
-specification and conflict detection directly relevant to Section~4.2.
+This paper demonstrates a control failure by simulation in a specific design
+class; several limitations bound what it establishes.
+
+\emph{The supremum is not estimated.}  The grid exhibits points at which
+control fails and establishes that the supremum is at least 0.2618, the largest
+value observed.  It does not locate the worst case.
+
+\emph{Conflict is not quantified.}  We evaluate departures from the calibration
+anchor, not prior-data conflict defined against the prior predictive
+distribution.  A prior-predictive diagnostic would place mild and strong on a
+principled scale, and would also supply the reference point that
+Section~\ref{sec:design} shows to be ambiguous.  Companion work on the
+fair-minded scepticism (FMS) prior is relevant but does not directly supply
+it: \citet{matthews_qian_fms} derives a null-centred prior for settings where
+relevant prior insight is contentious or absent, and
+\citet{qian_matthews_fms_ops} set out a pre-specifiable prior--data
+disagreement diagnostic in a form a sponsor can commit to.  That framework is
+calibrated for \emph{Normal-mean} designs and records explicitly that binary
+endpoints do not admit its closed-form identity; the present design satisfies
+neither its likelihood nor its sample-size conditions, so adapting it here
+would require a new statistic and its own calibration.  That extension has not
+been undertaken here.
+
+\emph{The SSR rule is not aligned with the estimand.}  SSR is a pooled
+one-sample conditional-power rule against $p_0 = 0.25$, while the final
+analysis is a two-arm comparison.  Under $H_0$ with both arms above 0.25,
+pooled response exceeds the threshold by construction, so SSR fires on nuisance
+drift rather than on treatment effect.  Results involving SSR are conditional
+on this choice.
+
+\emph{No sufficient condition is proved.}  For sigma-fields
+$\mathcal{F}_i \cap \mathcal{F}_j$ is never empty, and shared information
+neither guarantees nor precludes error control on its own; a conditional-error
+or design-specific argument would be required.
+
+\emph{Calibration is in-sample.}  Binary search targets the empirical
+calibration sample exactly; out-of-sample behaviour is unverified.
+
+\emph{Component ablations are not separately calibrated.}  $\gamma^*$ is
+calibrated once, with all mechanisms active.  Every ablation reported here
+retains that threshold, so none of them is at nominal even at the anchor: with
+SSR and RAR disabled the ablation sits near 0.05 there.  These rows therefore
+answer ``does switching this component off restore control?'' and not ``how
+much of the excess did this component cause?''.  Separately calibrating each
+component design, and reporting differences relative to each design's own
+anchor, would support attribution; that analysis is not undertaken here.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
 
-Component-level validation is not enough for composed adaptive designs.  The
-operating characteristics of the system are not the sum of its parts.  When
-adaptive mechanisms update on overlapping information sets, per-component
-calibration guarantees do not transfer to the composed pipeline---and the failure
-is not visible without pipeline-level evaluation.
+Point calibration did not provide uniform Type~I error control across the
+composite null.  At the full-design threshold, disabling SSR and RAR did not
+restore control.  Their effects were nonlinear: RAR had essentially no marginal
+effect without SSR but raised Type~I error when SSR was active, and the
+fixed-$\gamma^*$ contrast reversed sign across the evaluated null rates.
 
-Zetyra provides a validated, reproducible framework for evaluating composed
-designs as composed systems.  Under a mild prior-data conflict representative of
-plausible inter-study rate variation, pipeline-level T1E reached 0.0771 ($+$208\%
-above nominal)---with the two mechanisms super-additive, producing 0.0278 more
-inflation than the sum of their individual contributions.  The simulation code and validation scripts are publicly available for
+The practical consequence is a reporting standard rather than a new method.
+Operating characteristics should be evaluated over a prespecified grid of
+null-generating conditions.  Fixed-threshold ablations can show whether
+disabling a component restores control, but attribution requires separately
+calibrating each design.  The simulation code is publicly available for
 independent verification and extension; the Zetyra platform is a commercial
 SaaS product.
 
-\medskip\noindent\textit{Validate the pipeline.  Not the parts.}
+\medskip\noindent\textit{Calibrate at a point.  Validate over the null.}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section*{Acknowledgements}
 
-Simulation code:
-\url{https://github.com/evidenceinthewild/Composed-Adaptive-Trial-Validation}
+Simulation source, manuscript source and figures:\\
+\href{https://github.com/evidenceinthewild/Composed-Adaptive-Trial-Validation}{github.com/evidenceinthewild/Composed-Adaptive-Trial-Validation}.
+The fresh-seed check on the SSR~$\times$~RAR interaction is an executable
+chunk in the simulation document (\texttt{factorial-fresh-seed}), not a
+reported constant.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \appendix
@@ -598,7 +682,8 @@ Simulation code:
 \label{app:platform}
 
 Zetyra spans four design domains: frequentist methods (group sequential design,
-survival sample size, CUPED); Bayesian methods (prior elicitation, historical
+survival sample size, CUPED); Bayesian methods
+\citep{zetyra_bayesian_toolkit} (prior elicitation, historical
 borrowing via MAP and power priors, sequential monitoring, predictive power);
 adaptive methods (blinded, unblinded, and single-arm sample size re-estimation
 (SSR); response-adaptive randomization (RAR) via Thompson Sampling and doubly
@@ -606,27 +691,45 @@ adaptive biased coin designs); and master protocol settings (basket, umbrella,
 platform trials).
 
 \paragraph{Reference engines.}
-Frequentist validation uses gsDesign \citep{anderson_gsdesign} for group
-sequential boundaries and Schoenfeld for survival power.  SSR rules are validated
-against conditional power formulas via self-consistency testing.  Bayesian
-validation uses RBesT \citep{weber_rbest} for MAP prior construction, and
-\citet{zhou_lee_yuan_2017} for sequential monitoring boundaries.
-Single-arm SSR is validated against \citet{lee_liu_2008} and
-\citet{saville_2014}.  RAR designs are validated against analytical
+Frequentist benchmarking uses gsDesign \citep{anderson_gsdesign} for group
+sequential boundaries and \citet{schoenfeld_1983} for survival sample size.
+SSR rules are checked against conditional-power formulas by self-consistency
+testing rather than against an external reference design.  Bayesian
+benchmarking uses RBesT \citep{weber_rbest} for MAP prior construction and
+\citet{zhou_ji_2024} for sequential monitoring boundaries.  Predictive-probability
+monitoring is benchmarked against \citet{lee_liu_2008} and
+\citet{saville_2014}.  RAR designs are benchmarked against analytical
 $P(\theta_e > \theta_c)$ computed via numerical integration.
 
 \paragraph{Clinical trial benchmarks.}
-Nine published trials provide outcome-level validation: I-SPY~2, STAMPEDE,
-REMAP-CAP, NCT03377023 (Nivo+Ipi+Nintedanib NSCLC), GSD PACIFIC~OS,
-GSD MONALEESA-7~OS, and Bayesian sequential survival benchmarks
-\citep{barker_ispy2,angus_remapcap}.  Maximum deviation: 0.034 z-score units.
+Eight published trials plus one methodological worked example provide
+outcome-level comparison.  The eight trials are the Salk polio vaccine field
+trial; DAPA-HF; PACIFIC (OS); MONALEESA-7 (OS); I-SPY~2
+\citep{barker_ispy2}; STAMPEDE \citep{sydes_stampede_2012}; REMAP-CAP
+\citep{angus_remapcap}; and NCT03377023 \citep{nct03377023}.  Primary
+references for the Salk, DAPA-HF, PACIFIC and MONALEESA-7 benchmarks are
+recorded in the validation repository rather than reproduced here.  The
+methodological worked example is \citet{leyrat_2024}, a cluster-randomized
+trial sample-size calculation involving the intracluster correlation and design
+effect---not a trial outcome benchmark.  Maximum deviation across the eight
+trials: 0.034 z-score units.
 
 \paragraph{Automated testing.}
-An automated suite of 655 tests across 35 scripts runs continuously on GitHub
-Actions and is open to independent verification:
-\url{github.com/evidenceinthewild/zetyra-validation}.
-Full documentation is available in the Zetyra Technical White Paper
-\citep{zetyra_whitepaper}.
+The repository documents 896 validation checks across 42 scripts (39 Python, 3
+R) and reports all as passing.  Continuous integration runs a six-script smoke
+subset on every push and pull request; the full suite is executed locally
+rather than in CI.  The repository is open to independent verification:
+\href{https://github.com/evidenceinthewild/zetyra-validation}{github.com/evidenceinthewild/zetyra-validation}.
+Full documentation is available in the Zetyra white paper, v2.3
+\citep{zetyra_whitepaper}; the Bayesian calculators used here are documented
+separately in the Zetyra Bayesian Toolkit \citep{zetyra_bayesian_toolkit}.
+
+\paragraph{Scope of these checks.}
+These are numerical benchmark checks---each verifies that an implementation
+reproduces a reference computation or is internally self-consistent.  None is
+an operating-characteristic evaluation, and passing them does not establish
+Type~I error control for any design in which the components are combined.  That
+distinction is the subject of this paper.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \bibliographystyle{plainnat}

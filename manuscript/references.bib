@@ -3,11 +3,11 @@
   title        = {Use of {B}ayesian Methodology in Clinical Trials of Drug and Biological Products: Draft Guidance for Industry},
   year         = {2026},
   month        = {January},
-  howpublished = {Draft guidance document},
-  url          = {https://www.fda.gov/regulatory-information/search-fda-guidance-documents/use-bayesian-methodology-clinical-trials-drug-and-biological-products}
+  howpublished = {Draft guidance for industry; docket FDA-2025-D-3217. Not for implementation; contains non-binding recommendations},
+  url          = {https://www.fda.gov/media/190505/download}
 }
 @article{weber_rbest,
-  author  = {Weber, Sebastian and Li, Yue and Seaman III, James W. and Kakizume, Tomoyuki and Schmidli, Heinz},
+  author  = {Weber, Sebastian and Li, Yue and Seaman III, John W. and Kakizume, Tomoyuki and Schmidli, Heinz},
   title   = {Applying Meta-Analytic-Predictive Priors with the {R} {B}ayesian Evidence Synthesis Tools},
   journal = {Journal of Statistical Software},
   year    = {2021},
@@ -23,7 +23,8 @@
   year    = {2008},
   volume  = {5},
   number  = {2},
-  pages   = {93--106}
+  pages   = {93--106},
+  doi     = {10.1177/1740774508089279}
 }
 @article{saville_2014,
   author  = {Saville, Benjamin R. and Connor, Jason T. and Ayers, Gregory D. and Alvarez, JoAnn},
@@ -32,13 +33,16 @@
   year    = {2014},
   volume  = {11},
   number  = {4},
-  pages   = {485--493}
+  pages   = {485--493},
+  doi     = {10.1177/1740774514531352}
 }
 @manual{anderson_gsdesign,
   author  = {Anderson, Keaven M.},
   title   = {gsDesign: Group Sequential Design},
-  year    = {2026},
-  note    = {{R} package version 3.9.0},
+  year    = {2024},
+  note    = {{R} package. The validation workflow installs the current CRAN
+             release rather than a pinned version; no specific version is
+             claimed for the benchmarks reported here},
   url     = {https://CRAN.R-project.org/package=gsDesign}
 }
 @article{barker_ispy2,
@@ -48,26 +52,18 @@
   year    = {2009},
   volume  = {86},
   number  = {1},
-  pages   = {97--100}
+  pages   = {97--100},
+  doi     = {10.1038/clpt.2009.68}
 }
 @article{angus_remapcap,
-  author  = {Angus, Derek C. and others},
-  title   = {Effect of Hydrocortisone on Mortality and Organ Support in Patients with Severe {COVID-19}},
+  author  = {{The Writing Committee for the REMAP-CAP Investigators}},
+  title   = {Effect of Hydrocortisone on Mortality and Organ Support in Patients with Severe {COVID-19}: The {REMAP-CAP} {COVID-19} Corticosteroid Domain Randomized Clinical Trial},
   journal = {JAMA},
   year    = {2020},
   volume  = {324},
   number  = {13},
-  pages   = {1317--1329}
-}
-@article{zhou_lee_yuan_2017,
-  author  = {Zhou, Heng and Lee, J. Jack and Yuan, Ying},
-  title   = {{BOP2}: {B}ayesian Optimal Design for Phase {II} Clinical Trials with Simple and Complex Endpoints},
-  journal = {Statistics in Medicine},
-  year    = {2017},
-  volume  = {36},
-  number  = {21},
-  pages   = {3302--3314},
-  doi     = {10.1002/sim.7338}
+  pages   = {1317--1329},
+  doi     = {10.1001/jama.2020.17022}
 }
 @misc{nct03377023,
   author       = {{ClinicalTrials.gov}},
@@ -76,11 +72,24 @@
   year         = {2017},
   url          = {https://clinicaltrials.gov/study/NCT03377023}
 }
+@misc{zetyra_bayesian_toolkit,
+  author       = {Qian, Lu},
+  title        = {Zetyra Bayesian Toolkit: A Comprehensive Suite of Validated {B}ayesian Calculators for Clinical Trial Design},
+  year         = {2026},
+  version      = {1.0},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.18880066},
+  url          = {https://doi.org/10.5281/zenodo.18880066}
+}
+
 @misc{zetyra_whitepaper,
   author       = {Qian, Lu},
-  title        = {Zetyra Technical White Paper: Validation Framework and Calculator Documentation},
+  title        = {Zetyra: A Validated Suite of Statistical Calculators for Efficient Clinical Trial Design},
   year         = {2026},
-  url          = {https://zetyra.com/whitepaper}
+  version      = {2.3},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.20218751},
+  url          = {https://doi.org/10.5281/zenodo.20218751}
 }
 @article{viele_2014,
   author  = {Viele, Kert and Berry, Scott and Neuenschwander, Beat and Amzal, Billy and Chen, Fang and Enas, Nathan and Hobbs, Brian and Ibrahim, Joseph G. and Kinnersley, Nelson and Lindborg, Stacy and Micallef, Sandrine and Roychoudhury, Satrajit and Thompson, Laura},
@@ -89,7 +98,8 @@
   year    = {2014},
   volume  = {13},
   number  = {1},
-  pages   = {41--54}
+  pages   = {41--54},
+  doi     = {10.1002/pst.1589}
 }
 @article{tang_2010,
   author  = {Tang, Hui and Foster, Nathan R. and Grothey, Axel and Ansell, Stephen M. and Goldberg, Richard M. and Sargent, Daniel J.},
@@ -98,11 +108,61 @@
   year    = {2010},
   volume  = {28},
   number  = {11},
-  pages   = {1936--1941}
+  pages   = {1936--1941},
+  doi     = {10.1200/JCO.2009.25.5489}
 }
-@unpublished{matthews_forthcoming,
+@unpublished{matthews_qian_fms,
   author = {Matthews, Robert A. J. and Qian, Lu},
-  title  = {The Analysis of Credibility ({AnCred}) as a Framework for Prior Specification and Conflict Detection in Regulatory {B}ayesian Submissions},
+  title  = {An Information-Theoretic Prior for Regulatory Assessment of Therapies Lacking Prior Support},
   year   = {2026},
-  note   = {Unpublished manuscript}
+  note   = {Submitted to \emph{The New England Journal of Statistics in Data Science}}
+}
+
+@unpublished{qian_matthews_fms_ops,
+  author = {Qian, Lu and Matthews, Robert A. J.},
+  title  = {Operationalising the Fair-Minded Scepticism Prior in Regulatory Clinical Trials},
+  year   = {2026},
+  note   = {Submitted to \emph{The New England Journal of Statistics in Data Science}}
+}
+
+@article{zhou_ji_2024,
+  author  = {Zhou, Tianjian and Ji, Yuan},
+  title   = {On {B}ayesian Sequential Clinical Trial Designs},
+  journal = {The New England Journal of Statistics in Data Science},
+  year    = {2024},
+  volume  = {2},
+  number  = {1},
+  pages   = {136--151},
+  doi     = {10.51387/23-NEJSDS24}
+}
+
+@article{schoenfeld_1983,
+  author  = {Schoenfeld, David A.},
+  title   = {Sample-Size Formula for the Proportional-Hazards Regression Model},
+  journal = {Biometrics},
+  year    = {1983},
+  volume  = {39},
+  number  = {2},
+  pages   = {499--503},
+  doi     = {10.2307/2531021}
+}
+
+@article{leyrat_2024,
+  author  = {Leyrat, Cl\'{e}mence and Eldridge, Sandra and Taljaard, Monica and Hemming, Karla},
+  title   = {Practical Considerations for Sample Size Calculation for Cluster Randomized Trials},
+  journal = {Journal of Epidemiology and Population Health},
+  year    = {2024},
+  volume  = {72},
+  pages   = {202198},
+  doi     = {10.1016/j.jeph.2024.202198}
+}
+
+@article{sydes_stampede_2012,
+  author  = {Sydes, Matthew R. and Parmar, Mahesh K. B. and Mason, Malcolm D. and Clarke, Noel W. and Amos, Claire and Anderson, John and de Bono, Johann and Dearnaley, David P. and Dwyer, John and Green, Charlene and Jovic, Gordana and Ritchie, Alastair W. S. and Russell, J. Martin and Sanders, Karen and Thalmann, George and Bertelli, Gianfilippo and Birtle, Alison and O'Sullivan, Joe M. and Protheroe, Andrew and Sheehan, Denise and Srihari, Narayanan and James, Nicholas D.},
+  title   = {Flexible Trial Design in Practice --- Stopping Arms for Lack of Benefit and Adding Research Arms Mid-Trial in {STAMPEDE}: A Multi-Arm Multi-Stage Randomized Controlled Trial},
+  journal = {Trials},
+  year    = {2012},
+  volume  = {13},
+  pages   = {168},
+  doi     = {10.1186/1745-6215-13-168}
 }

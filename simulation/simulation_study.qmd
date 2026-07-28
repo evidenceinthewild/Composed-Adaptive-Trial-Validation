@@ -52,14 +52,26 @@ ZET <- list(
   green    = "#1B3A2E",   # forest green  — primary series, headers
   green2   = "#2D6A4F",   # mid green     — secondary series
   teal     = "#40916C",   # light green   — tertiary / Version B
-  slate    = "#6B7280",   # medium slate  — subtitles, captions
+  slate    = "#4B5563",   # dark slate    — axis text, subtitles, legends
   gridline = "#E5E7EB",   # cool light gray — major gridlines
   red      = "#B91C1C",   # accessible red — reference lines, FAIL
   amber    = "#D97706",   # amber         — warning / border
   bg       = "#FFFFFF",   # pure white    — plot background
   panel    = "#FFFFFF",   # white         — panel background
-  muted    = "#9CA3AF"    # muted gray    — secondary labels
+  muted    = "#545C6B",   # dark grey     — captions, reference annotations (6.7:1)
+  neutralL = "#46505F",   # darker grey   — grey DATA series (8.0:1 on white)
+  neutralF = "#8B95A3"    # mid grey fill — baseline/neutral BARS (3.0:1, WCAG 1.4.11)
 )
+
+# ── Cache invalidation on palette change ──────────────────────────────────────
+# knitr keys a chunk's cache on that chunk's own code text. The palette lives
+# here, in an uncached setup chunk, so editing a colour does NOT invalidate the
+# cached plotting chunks — a palette-only edit would silently leave most figures
+# at the OLD colours while the few uncached ones update, producing a deck with
+# mismatched greys. Making the palette part of every chunk's cache key fixes
+# that: change a colour and every figure regenerates; leave it alone and the
+# expensive simulations stay cached.
+knitr::opts_chunk$set(cache.extra = list(zet_palette = ZET))
 
 # ── Modern publication theme ──────────────────────────────────────────────────
 theme_zetyra <- function(base_size = 12) {
@@ -115,14 +127,35 @@ theme_zetyra <- function(base_size = 12) {
 
 ## Overview
 
-This document implements the simulation study for the composed Bayesian design evaluation.
+This document implements the simulation study for a two-arm Phase II oncology
+design with historical borrowing on the control arm, Bayesian posterior
+monitoring, blinded sample size re-estimation (SSR) and response-adaptive
+randomization (RAR).
 
-**Central claim:** Component-level validation is insufficient for composed adaptive
-designs — trials where Bayesian monitoring, sample size re-estimation, and
-response-adaptive randomization share an interim information set $\mathcal{F}_t$.
+**Primary claim — robustness.** An efficacy threshold calibrated at a single
+assumed control rate does not deliver Type I error control across the composite
+null. Ablations that switch off the adaptive components while *holding that
+threshold fixed* do not restore control either.
+
+**Secondary claim — composition.** SSR and RAR modify that excess substantially
+and nonlinearly, and the sign of their combined effect depends on where in the
+null the design is evaluated (protective at low rates, harmful at high ones).
+
+**Scope.** The grid *demonstrates* a control failure and establishes that the
+supremum is at least 0.2618; it does not locate the supremum. Scenarios are
+departures of the baseline rate from the calibration anchor $p_0 = 0.25$, not
+quantified prior–data conflict. On the plausibility of departures of this size,
+@tang_2010 treat a five-percentage-point control-rate drift as clinically modest
+in an oncology simulation, and @viele_2014 review the conditions under which
+historical and concurrent control rates diverge. Allocation targets follow the
+optimal-allocation literature [@rosenberger_optimal; @rosenberger_lachin].
+
+The platform and its benchmark framework are documented in the Zetyra white
+paper [@zetyra_whitepaper]; the Bayesian calculators used here are documented
+separately [@zetyra_bayesian_toolkit].
 
 Simulation code:
-`github.com/evidenceinthewild/evidenceinthewild/tree/main/composed-bayesian-designs`
+`github.com/evidenceinthewild/Composed-Adaptive-Trial-Validation`
 
 ---
 
@@ -140,21 +173,40 @@ N_max    <- 150L
 n_looks  <- c(30L, 45L, 60L, 90L)
 n_ssr    <- 45L    # SSR trigger at 50% of N_base
 
-# ── MAP prior parameters (validated against RBesT in 5.2.1) ──────────────────
-# Informed:  Beta(6.5, 19.5)  [ESS ≈ 26, mean ≈ 0.25]
-# Vague:     Beta(0.5, 0.5)   [Jeffreys]
-# Mixture:   70% informed + 30% vague
-a_inf <- 6.5;  b_inf <- 19.5
-a_vag <- 0.5;  b_vag <- 0.5
-w_inf <- 0.70
+# ── MAP prior ────────────────────────────────────────────────────────────────
+# The prior is FITTED from historical data in 5.2.1 and stored in `prior_mix`,
+# a matrix with rows (w, a, b), one column per mixture component.
+#
+# NOTE (2026-07 correction): earlier versions declared scalar defaults
+#   a_inf = 6.5; b_inf = 19.5; w_inf = 0.70; a_vag = 0.5; b_vag = 0.5
+# both here AND as default arguments of simulate_one_trial(). Because R
+# evaluates default arguments as literals in the function frame, the fitted
+# values assigned here never reached the simulation: every result was produced
+# by the hand-specified 0.70*Beta(6.5,19.5) + 0.30*Beta(0.5,0.5) mixture
+# (mean 0.325), not by the RBesT MAP fit. The prior is now passed explicitly
+# as a single object so the two cannot diverge.
+prior_mix <- NULL   # assigned in 5.2.1; simulations require it
 
 # ── Prior-data conflict & time trend ─────────────────────────────────────────
-p0_conflict      <- 0.30   # strong conflict: 5pp above prior mean (stress test)
-p0_conflict_mild <- 0.27   # mild conflict:   2pp above prior mean
+# Conflict scenarios are defined relative to the DESIGN NULL p0 = 0.25 -- the
+# historical control rate the efficacy threshold is calibrated at -- NOT
+# relative to the mean of the robustified MAP mixture.
+#
+# NOTE (2026-07 correction): these were labelled "2pp / 5pp above the prior
+# mean". That is false for every candidate prior: the fitted robustified
+# mixture has mean 0.3132, so p = 0.27 and p = 0.30 both lie BELOW it. The
+# reference point is now named explicitly wherever these are described.
+# For orientation, the relevant means are:
+#   design null / historical rate       0.2500
+#   dominant (informative) component    0.2568
+#   full robustified mixture            0.3132
+p0_conflict      <- 0.30   # +5 pp above the design null p0 = 0.25 (stress test)
+p0_conflict_mild <- 0.27   # +2 pp above the design null p0 = 0.25 (headline)
 delta_trend <- 0.05   # linear drift over full enrollment
 
 # ── Monte Carlo & simulation counts ──────────────────────────────────────────
-N_mc         <- 5000L
+# (N_mc removed: posterior probabilities are now computed by deterministic
+#  quadrature rather than Monte Carlo -- see map_posterior_prob().)
 N_sim_calib  <- 20000L
 N_sim_main   <- 10000L
 N_sim_sens   <-  5000L
@@ -174,7 +226,7 @@ mcse_ci <- function(p_hat, n_sim) {
 
 ## 5.2 Component-Level Validation
 
-### 5.2.1 MAP Prior — Validation Against RBesT
+### 5.2.1 MAP Prior — Benchmarked Against RBesT [@weber_rbest]
 
 ```{r map-prior-fit}
 hist_data <- data.frame(
@@ -220,22 +272,17 @@ analytic_dens <- sapply(p_seq, function(p)
 
 max_dev_map <- max(abs(rbest_dens - analytic_dens))
 
-# Update global prior parameters for use in simulation functions
-# Use the informative component (highest weight / smallest variance)
-# For the two-component robustified mixture:
-# -- the informative component is the one from automixfit()
-# -- the vague component is the robustify() addition
-# We update the global parameters to the FITTED values so simulation is consistent.
-idx_inf <- which.max(a_fit + b_fit)   # most informative = highest ESS
-idx_vag <- setdiff(seq_along(w_fit), idx_inf)[1]
+# ── Carry the FULL fitted mixture into the simulation ────────────────────────
+# automixfit(Nc = 2) + robustify() returns THREE components. Earlier versions
+# assumed two: they took the most informative component, treated the *first*
+# leftover as "vague", and dropped the Beta(1,1) robustify() component
+# entirely. The full mixture is now passed through intact.
+prior_mix <- rbind(w = w_fit, a = a_fit, b = b_fit)
 
-a_inf <<- a_fit[idx_inf]; b_inf <<- b_fit[idx_inf]; w_inf <<- w_fit[idx_inf]
-a_vag <<- a_fit[idx_vag]; b_vag <<- b_fit[idx_vag]
-
-cat(sprintf("\nUpdated simulation parameters:\n"))
-cat(sprintf("  Informed: w=%.3f  a=%.3f  b=%.3f\n", w_inf, a_inf, b_inf))
-cat(sprintf("  Vague:    w=%.3f  a=%.3f  b=%.3f\n",
-            w_fit[idx_vag], a_vag, b_vag))
+cat(sprintf("\nPrior carried into simulation (%d components):\n", ncol(prior_mix)))
+print(round(prior_mix, 4))
+cat(sprintf("  mixture mean = %.4f\n", sum(w_fit * a_fit / (a_fit + b_fit))))
+stopifnot(abs(sum(w_fit) - 1) < 1e-8)
 
 # Component densities for plot
 df_comps <- tibble(
@@ -268,31 +315,68 @@ cat(sprintf("\nMAP PRIOR:  max dev = %.2e  [floating-point precision]  %s\n",
 
 ### 5.2.2 Posterior Probability Helper
 
+The monitoring rule is a posterior-probability threshold applied at each
+interim look; see @zhou_ji_2024 for the design family and the question of
+whether such rules require adjustment for interim analyses.
+
 ```{r posterior-prob-fn}
-# MAP mixture posterior: P(p_e > p_c | data) via Monte Carlo.
-# All prior parameters passed explicitly so sensitivity sweeps can vary them.
-map_posterior_prob <- function(x_e, n_e, x_c, n_c,
-                               a_inf, b_inf, w_inf,
-                               a_vag = 0.5, b_vag = 0.5,
-                               n_mc  = N_mc) {
-  ai <- a_inf + x_c;  bi <- b_inf + (n_c - x_c)
-  av <- a_vag + x_c;  bv <- b_vag + (n_c - x_c)
+# ── Conjugate update of an arbitrary Beta-mixture prior ──────────────────────
+# mix: matrix with rows (w, a, b), one column per component.
+mixture_posterior <- function(mix, x_c, n_c) {
+  w <- mix["w", ]; a <- mix["a", ]; b <- mix["b", ]
+  a_post <- a + x_c
+  b_post <- b + (n_c - x_c)
+  lml <- lbeta(a_post, b_post) - lbeta(a, b)      # log marginal likelihood
+  lw  <- log(w) + lml
+  lw  <- lw - max(lw)                              # numerically stable
+  w_post <- exp(lw); w_post <- w_post / sum(w_post)
+  rbind(w = w_post, a = a_post, b = b_post)
+}
 
-  # Update weights via log marginal likelihood (numerically stable)
-  lml_i <- lbeta(ai, bi) - lbeta(a_inf, b_inf)
-  lml_v <- lbeta(av, bv) - lbeta(a_vag, b_vag)
-  log_Z  <- log(w_inf * exp(lml_i) + (1 - w_inf) * exp(lml_v))
-  w_i    <- w_inf * exp(lml_i - log_Z)
+# ── Gauss-Legendre nodes on [0,1] for deterministic integration ──────────────
+# Golub-Welsch: nodes/weights are the eigenvalues/first-components of the
+# symmetric tridiagonal Jacobi matrix. Base R only -- no extra dependency.
+gauss_legendre_01 <- function(n) {
+  k <- 1:(n - 1)
+  b <- k / sqrt(4 * k^2 - 1)
+  J <- diag(0, n)
+  J[cbind(k, k + 1)] <- b
+  J[cbind(k + 1, k)] <- b
+  e <- eigen(J, symmetric = TRUE)
+  ord <- order(e$values)
+  x <- e$values[ord]                  # nodes on [-1, 1]
+  w <- 2 * (e$vectors[1, ord])^2      # weights on [-1, 1]
+  list(x = 0.5 * (x + 1), w = 0.5 * w)   # mapped to [0, 1]
+}
+.gl <- gauss_legendre_01(400)
+.QX <- .gl$x
+.QW <- .gl$w
 
-  p_c_draw <- ifelse(runif(n_mc) < w_i,
-                     rbeta(n_mc, ai, bi),
-                     rbeta(n_mc, av, bv))
-  p_e_draw <- rbeta(n_mc, 0.5 + x_e, 0.5 + (n_e - x_e))
-  mean(p_e_draw > p_c_draw)
+# Sanity: integrate a known Beta density and CDF product to machine precision.
+stopifnot(abs(sum(.QW) - 1) < 1e-12,
+          abs(sum(.QW * dbeta(.QX, 3, 7)) - 1) < 1e-10)
+
+# ── P(p_e > p_c | data), computed EXACTLY ────────────────────────────────────
+# = int f_e(x) F_c(x) dx, where p_e ~ Beta(.5+x_e, .5+n_e-x_e) (Jeffreys, no
+# borrowing on the experimental arm) and p_c ~ posterior mixture.
+#
+# NOTE (2026-07 correction): this was previously a 2,000-draw Monte Carlo
+# estimate. Because the monitoring rule takes a maximum over interim looks,
+# Monte Carlo noise in the estimate inflates that maximum, and identical trial
+# data could yield different decisions. Deterministic quadrature agrees with a
+# 4e5-draw reference to ~1e-16 and removes the randomness entirely.
+map_posterior_prob <- function(x_e, n_e, x_c, n_c, mix) {
+  post <- mixture_posterior(mix, x_c, n_c)
+  f_e <- dbeta(.QX, 0.5 + x_e, 0.5 + (n_e - x_e))
+  F_c <- rowSums(vapply(seq_len(ncol(post)),
+                        function(j) post["w", j] *
+                          pbeta(.QX, post["a", j], post["b", j]),
+                        numeric(length(.QX))))
+  sum(.QW * f_e * F_c)
 }
 ```
 
-### 5.2.3 Single-Arm SSR — Validation Against Lee & Liu (2008)
+### 5.2.3 Single-Arm SSR — Conditional-Power Self-Consistency
 
 ```{r ssr-helpers}
 # Conditional power: Wald approximation for binary endpoint (blinded interim).
@@ -405,7 +489,7 @@ cat(sprintf("      Futile: n_star == n_int for p_hat <= p0:  %s\n",
                        ssr_res$n_int[ssr_res$futile]), "PASS", "FAIL")))
 ```
 
-### 5.2.4 RAR — Validation Against Rosenberger Optimal Allocation
+### 5.2.4 RAR — Benchmarked Against Analytic Allocation [@rosenberger_optimal]
 
 ```{r rar-validation}
 #| cache: true
@@ -488,13 +572,15 @@ cat(sprintf("RAR:  max dev = %.5f  [threshold 0.005]  %s\n",
 ```{r sim-fn}
 # simulate_one_trial() -----------------------------------------------------------
 #
-# Returns TRUE if H0 is rejected.
+# Returns the maximum posterior probability across interim looks; see the note
+# below. Convert to a rejection decision with t1e_at(pp, gamma).
 #
 # Two-arm Phase II design with historical borrowing on the control arm via a
 # MAP prior, three co-occurring adaptive mechanisms:
 #   MAP Bayesian monitoring, blinded SSR (if use_ssr), Thompson Sampling RAR (if use_rar)
 #
-# Negative control (Version B — causal isolation):
+# Version B (SSR-timing sensitivity, NOT causal isolation -- moving SSR also
+#   changes the realised final-N distribution):
 #   Same monitoring schedule as primary (looks = c(30,45,60,90)).
 #   Same use_ssr=TRUE, use_rar=TRUE.
 #   ONLY difference: n_ssr_trig=30 instead of 45.
@@ -505,24 +591,34 @@ cat(sprintf("RAR:  max dev = %.5f  [threshold 0.005]  %s\n",
 # sample sizes in primary and control; only SSR timing differs.
 #
 # Factorial decomposition: use_ssr x use_rar gives four conditions.
-# Mechanism isolation: vary p_c_data (conflict) and delta (trend) independently.
+# Factor crossing: vary p_c_data (baseline-rate departure) and delta (trend).
 
+# Returns the MAXIMUM posterior probability across interim looks.
+#
+# Data generation does not depend on gamma -- the enrollment loop completes
+# before monitoring begins -- so rejection at threshold gamma is exactly
+# {max_pp > gamma}. Returning max_pp lets a single simulated sample yield the
+# Type I error at EVERY threshold, which makes exact calibration cheap.
+#
+# NOTE (2026-07 correction): `mix` has no default. It previously did
+# (w_inf = 0.70, a_inf = 6.5, b_inf = 19.5), and because every caller omitted
+# the prior arguments, R used those literals and the fitted MAP prior was
+# never actually used. Making the argument mandatory makes that failure
+# impossible.
 simulate_one_trial <- function(
-    gamma,
+    mix,                  # REQUIRED: fitted prior, rows (w, a, b)
     p_true_e   = 0.25,
     p_c_data   = 0.25,    # control data-generating rate (conflict: != p0)
     delta      = 0,       # time trend magnitude
-    w_inf      = 0.70,
-    a_inf      = 6.5,  b_inf = 19.5,
-    a_vag      = 0.5,  b_vag = 0.5,
     n_ssr_trig = 45L,     # when SSR fires (primary=45, Version B control=30)
     use_ssr    = TRUE,    # FALSE = no sample size adaptation
     use_rar    = TRUE,    # FALSE = fixed 1:1 alternating allocation
     n_base     = 90L,
     n_cap      = 150L,
     looks      = c(30L, 45L, 60L, 90L),
-    n_burn_rar = 10L,
-    n_mc_pp    = 2000L) {
+    n_burn_rar = 10L) {
+
+  stopifnot(!missing(mix), is.matrix(mix), all(c("w","a","b") %in% rownames(mix)))
 
   n_total  <- n_base
   ssr_done <- FALSE
@@ -536,9 +632,22 @@ simulate_one_trial <- function(
   i <- 1L
   while (i <= n_total) {
 
-    t_frac  <- (i - 1L) / n_total
-    p_e_now <- p_true_e + delta * t_frac
-    p_c_now <- p_c_data + delta * t_frac
+    # Calendar drift on a FIXED per-patient scale.
+    #
+    # NOTE (2026-07 correction): this was (i - 1L) / n_total, and n_total is
+    # mutated when SSR expands the trial. Normalized time therefore jumped
+    # BACKWARD at the moment SSR fired (e.g. 44/90 = 0.489 -> 45/150 = 0.300),
+    # so the response probability fell. The artifact was induced by SSR, which
+    # contaminated the estimated SSR effect and the conflict x trend
+    # interaction. The denominator is now fixed at the planned horizon: drift
+    # accrues at a constant rate per patient and is invariant to adaptation.
+    # Note t_frac may exceed 1 when SSR extends enrollment past n_base: drift
+    # keeps accruing at the same per-patient rate, which is the intended
+    # behaviour (a longer trial spans more calendar time). Clamp to [0,1] so
+    # rbinom() can never receive an out-of-range probability under large delta.
+    t_frac  <- (i - 1L) / (n_base - 1L)
+    p_e_now <- min(max(p_true_e + delta * t_frac, 0), 1)
+    p_c_now <- min(max(p_c_data + delta * t_frac, 0), 1)
 
     # Allocation: Thompson Sampling or fixed 1:1
     arm <- if (!use_rar || i <= n_burn_rar)
@@ -581,7 +690,7 @@ simulate_one_trial <- function(
   cum_xe <- cumsum(resp_v  * (alloc_v == 1L))
   cum_xc <- cumsum(resp_v  * (alloc_v == 0L))
 
-  rejected <- FALSE
+  max_pp <- 0
 
   for (lk in actual_looks) {
     ne <- cum_ne[lk];  xe <- cum_xe[lk]
@@ -589,12 +698,75 @@ simulate_one_trial <- function(
     if (ne == 0L || nc == 0L) next
 
     # Posterior always uses all data up to this look (no stagger)
-    pp <- map_posterior_prob(xe, ne, xc, nc,
-                             a_inf, b_inf, w_inf, a_vag, b_vag, n_mc_pp)
-    if (pp > gamma) { rejected <- TRUE; break }
+    pp <- map_posterior_prob(xe, ne, xc, nc, mix)
+    if (pp > max_pp) max_pp <- pp
   }
 
-  rejected
+  max_pp
+}
+
+# ── Helpers built on the max-pp representation ───────────────────────────────
+# T1E at a given threshold, from a vector of per-trial max posterior probs.
+t1e_at <- function(max_pp, gamma) mean(max_pp > gamma)
+
+# Exact threshold: smallest gamma whose T1E does not exceed alpha.
+#
+# NOTE (2026-07 correction): gamma* was previously chosen from a 0.005-step
+# grid, which left calibration T1E at 0.0290 against a 0.025 target. Reporting
+# inflation relative to 0.025 then charged that calibration error to the
+# scenario. Binary search removes it.
+calibrate_gamma <- function(max_pp, alpha = 0.025,
+                            lo = 0.80, hi = 0.9999, tol = 1e-6) {
+  for (k in seq_len(200)) {
+    mid <- 0.5 * (lo + hi)
+    if (mean(max_pp > mid) > alpha) lo <- mid else hi <- mid
+    if (hi - lo < tol) break
+  }
+  hi
+}
+
+# Replicate a scenario, returning the vector of per-trial max-pp values.
+#
+# NOTE: do NOT write replicate(n_sim, simulate_one_trial(...)). replicate()
+# is defined as sapply(integer(n), eval.parent(substitute(function(...) expr))),
+# so `...` inside the expression binds to that anonymous function's dots --
+# which receive the sapply loop index -- rather than to this function's dots.
+# The loop index would be passed positionally as `mix`. Capture the arguments
+# first and use do.call().
+max_pp_sample <- function(n_sim, ...) {
+  args <- list(...)
+  vapply(seq_len(n_sim),
+         function(i) do.call(simulate_one_trial, args),
+         numeric(1))
+}
+
+# ── Re-weight the vague component of a fitted mixture ────────────────────────
+# Used by the prior-weight sensitivity sweep. The vague component is the flat
+# one added by robustify(); its weight is set to `w_vague` and the informative
+# components share the remainder in their original proportions.
+#
+# The vague component is identified as the one with the smallest effective
+# sample size (a + b) rather than by matching exact parameters: robustify()
+# parameterises the added component by ESS, so it is Beta(1,1) or Beta(.5,.5)
+# depending on the `n` argument and RBesT version.
+#
+# NOTE (2026-07 correction): the sweep previously passed a scalar `w_inf`
+# straight into simulate_one_trial(), which -- given the default-argument
+# defect -- meant it swept the weight of a Beta(6.5,19.5) that had nothing to
+# do with the fitted prior.
+set_vague_weight <- function(mix, w_vague) {
+  ess <- mix["a", ] + mix["b", ]
+  if (ncol(mix) < 2L)
+    stop("mixture has a single component; nothing to re-weight")
+  idx_vague <- which.min(ess)
+  is_vague <- seq_len(ncol(mix)) == idx_vague
+  w <- mix["w", ]
+  w_new <- numeric(length(w))
+  w_new[is_vague]  <- w_vague
+  inf_w <- w[!is_vague]
+  w_new[!is_vague] <- (1 - w_vague) * inf_w / sum(inf_w)
+  stopifnot(abs(sum(w_new) - 1) < 1e-8)
+  rbind(w = w_new, a = mix["a", ], b = mix["b", ])
 }
 ```
 
@@ -604,23 +776,27 @@ $\gamma^*$ is calibrated under $H_0$ with no conflict and no trend.
 
 ```{r calibration}
 #| cache: true
-gamma_grid <- seq(0.90, 0.99, by = 0.005)
-
+# One sample of max-pp values yields T1E at every threshold, so the whole
+# calibration curve and the exact gamma* come from a single simulation run.
 set.seed(1L)
-t1e_calib <- sapply(gamma_grid, function(g) {
-  mean(replicate(N_sim_calib,
-                 simulate_one_trial(gamma    = g,
-                                    p_true_e = p0,
-                                    p_c_data = p0,      # no conflict
-                                    delta    = 0,       # no trend
-                                    use_ssr  = TRUE,    # calibrate with mechanisms on
-                                    use_rar  = TRUE)))  # but no conflict/trend
-})
+calib_pp <- max_pp_sample(N_sim_calib,
+                          mix      = prior_mix,
+                          p_true_e = p0,
+                          p_c_data = p0,      # no conflict
+                          delta    = 0,       # no trend
+                          use_ssr  = TRUE,    # calibrate with mechanisms on
+                          use_rar  = TRUE)
 
-gamma_star  <- gamma_grid[which.min(abs(t1e_calib - alpha))]
-t1e_at_star <- t1e_calib[which.min(abs(t1e_calib - alpha))]
+gamma_star  <- calibrate_gamma(calib_pp, alpha)
+t1e_at_star <- t1e_at(calib_pp, gamma_star)
 
-cat(sprintf("gamma* = %.3f  (achieved alpha = %.4f)\n", gamma_star, t1e_at_star))
+gamma_grid <- seq(0.90, 0.99, by = 0.005)
+t1e_calib  <- sapply(gamma_grid, function(g) t1e_at(calib_pp, g))
+
+cat(sprintf("gamma* = %.5f  (achieved alpha = %.4f, target %.4f)\n",
+            gamma_star, t1e_at_star, alpha))
+cat(sprintf("MCSE at gamma* = %.4f  (N = %d)\n",
+            mcse(t1e_at_star, N_sim_calib), N_sim_calib))
 
 tibble(gamma = gamma_grid, t1e = t1e_calib) |>
   ggplot(aes(gamma, t1e)) +
@@ -633,7 +809,7 @@ tibble(gamma = gamma_grid, t1e = t1e_calib) |>
            color = ZET$green2, hjust = 0, size = 3.5, fontface = "bold") +
   scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
   labs(title    = "Monitoring Threshold Calibration",
-       subtitle = sprintf("Target α = %.3f under H₀ (no conflict, no trend)", alpha),
+       subtitle = sprintf("Target α = %.3f under H₀ (at anchor, no trend)", alpha),
        x = "Efficacy threshold γ", y = "Simulated Type I error") +
   theme_zetyra()
 ```
@@ -642,16 +818,16 @@ tibble(gamma = gamma_grid, t1e = t1e_calib) |>
 
 ```{r primary-sim}
 #| cache: true
-# PRIMARY: SSR fires at n=45 (same look as monitoring) → co-occurrence on F_{45}
-# Mechanisms: prior-data conflict (p_c=0.30 vs. prior mean 0.25) + time trend
+# PRIMARY: SSR fires at n=45 (same look as monitoring)
+# Factors: baseline-rate departure (p = 0.30 vs. calibration anchor 0.25) + trend
 #
 # H0 SPECIFICATION: Both arms generated from p0_conflict (= 0.30).
-# The MAP prior still expects 0.25 — this IS the conflict.
+# gamma* was calibrated at 0.25 -- this is the departure from that anchor.
 # H0 (no treatment effect) is preserved: p_true_e = p_c_data = 0.30.
 set.seed(2026L)
-rejs_primary <- replicate(
+pp_primary <- replicate(
   N_sim_main,
-  simulate_one_trial(gamma      = gamma_star,
+  simulate_one_trial(mix      = prior_mix,
                      p_true_e   = p0_conflict,  # H0: same rate as control
                      p_c_data   = p0_conflict,
                      delta      = delta_trend,
@@ -659,7 +835,7 @@ rejs_primary <- replicate(
                      use_ssr    = TRUE,
                      use_rar    = TRUE))
 
-t1e_primary   <- mean(rejs_primary)
+t1e_primary   <- t1e_at(pp_primary, gamma_star)
 inflation_abs <- t1e_primary - alpha
 inflation_pct <- inflation_abs / alpha * 100
 
@@ -670,12 +846,14 @@ cat(sprintf("Inflation:     +%.4f  (+%.1f%%)\n", inflation_abs, inflation_pct))
 ```{r mild-conflict-sim}
 #| cache: true
 
-# MILD CONFLICT: p_e = p_c = 0.27 (2pp above prior mean of 0.25)
+# MILD CONFLICT: p_e = p_c = 0.27, i.e. +2 pp above the DESIGN NULL p0 = 0.25
+# (the rate at which gamma* was calibrated). Not defined relative to the
+# robustified mixture mean, which is 0.3132 -- above both conflict scenarios.
 # All other parameters identical to primary simulation
 set.seed(2028L)
-rejs_mild <- replicate(
+pp_mild <- replicate(
   N_sim_main,
-  simulate_one_trial(gamma      = gamma_star,
+  simulate_one_trial(mix      = prior_mix,
                      p_true_e   = p0_conflict_mild,
                      p_c_data   = p0_conflict_mild,
                      delta      = delta_trend,
@@ -683,36 +861,35 @@ rejs_mild <- replicate(
                      use_ssr    = TRUE,
                      use_rar    = TRUE))
 
-t1e_mild      <- mean(rejs_mild)
+t1e_mild      <- t1e_at(pp_mild, gamma_star)
 inflation_mild <- t1e_mild - alpha
 inflation_pct_mild <- inflation_mild / alpha * 100
 
 cat(sprintf("MILD CONFLICT T1E:  %.4f  (nominal %.3f)\n", t1e_mild, alpha))
 cat(sprintf("Inflation:          +%.4f  (+%.1f%%)\n", inflation_mild, inflation_pct_mild))
-cat(sprintf("vs. strong conflict: %.4f  (strong = %.4f)\n", t1e_mild, t1e_primary))
+cat(sprintf("vs. strong departure: %.4f  (strong = %.4f)\n", t1e_mild, t1e_primary))
 
 # Comparison table
 tribble(
   ~Scenario,                              ~`p_conflict`, ~`T1E`,       ~`vs. nominal`,
-  "No conflict (calibration)",            "0.25",        t1e_at_star,   "—",
-  "Mild conflict (p=0.27)",     "0.27",        t1e_mild,
+  "At anchor (calibration)",              "0.25",        t1e_at_star,   "—",
+  "Mild departure (p=0.27)",    "0.27",        t1e_mild,
     sprintf("%+.1f%%", inflation_pct_mild),
-  "Strong conflict (p=0.30)","0.30",        t1e_primary,
+  "Strong departure (p=0.30)","0.30",        t1e_primary,
     sprintf("%+.1f%%", inflation_pct)
 ) |>
   mutate(T1E = sprintf("%.4f", T1E)) |>
   kable(caption = paste(
-    "Inflation scales with conflict severity.",
-    "Mild conflict (2pp): representative of plausible inter-study variation.",
-    "Strong conflict (5pp): stress test demonstrating inflation scales with severity.",
+    "Excess grows with the size of the departure.",
+    "Mild departure (+2pp from anchor 0.25): within plausible inter-study variation.",
+    "Strong departure (+5pp from anchor): stress test.",
     "All other parameters identical across rows."),
     align = c("l","c","r","r"))
 ```
 
-### Negative control: Version B — same monitoring, SSR timing only varies
+### Version B: SSR-timing sensitivity (same monitoring schedule)
 
-The Version B control addresses the concern that changing SSR timing
-might simultaneously alter the monitoring schedule and the posterior evidence base.
+Version B varies *when* SSR fires while holding the monitoring schedule fixed.
 
 **Version B design:**
 
@@ -723,15 +900,16 @@ might simultaneously alter the monitoring schedule and the posterior evidence ba
 | n=60 | monitoring only | monitoring only |
 | final | monitoring | monitoring |
 
-Monitoring is evaluated at identical sample sizes in both designs. The only
-difference is *when* SSR fires relative to a monitoring look.
+The scheduled monitoring looks are the same in both designs; only the interim
+at which SSR fires differs.
 
-**Causal claim being tested:** Does SSR co-occurring at the n=45 monitoring look
-— where both prior-data conflict and time trend effects have had more time to
-accumulate — produce more Type I error inflation than SSR co-occurring at the
-earlier n=30 look? If the attenuation is large, SSR timing is the primary driver;
-if the attenuation is negligible, prior-data conflict persists as the dominant
-mechanism regardless of when SSR fires.
+**This is a sensitivity analysis, not a clean negative control.** Moving SSR
+from $n=45$ to $n=30$ also changes the data on which re-estimation is computed,
+and therefore the distribution of the realised final sample size — and the final
+look is taken at `n_total`, which that distribution determines. The comparison
+confounds SSR timing with its consequences for final $N$. Read it as evidence on
+SSR timing; isolating a co-occurrence effect would require reporting and
+controlling the final-$N$ distributions.
 
 ```{r negative-control}
 #| cache: true
@@ -739,9 +917,9 @@ mechanism regardless of when SSR fires.
 # Version B control: n_ssr_trig=30 — SSR fires at n=30 look, not n=45
 # All other parameters identical to primary (including H0 specification)
 set.seed(2027L)
-rejs_neg <- replicate(
+pp_neg <- replicate(
   N_sim_main,
-  simulate_one_trial(gamma      = gamma_star,
+  simulate_one_trial(mix      = prior_mix,
                      p_true_e   = p0_conflict,  # H0: same rate as control
                      p_c_data   = p0_conflict,
                      delta      = delta_trend,
@@ -749,7 +927,7 @@ rejs_neg <- replicate(
                      use_ssr    = TRUE,
                      use_rar    = TRUE))
 
-t1e_neg       <- mean(rejs_neg)
+t1e_neg       <- t1e_at(pp_neg, gamma_star)
 pct_recovered <- (t1e_primary - t1e_neg) / inflation_abs * 100
 
 cat(sprintf("Version B T1E: %.4f  (nominal %.3f)\n", t1e_neg, alpha))
@@ -758,31 +936,31 @@ cat(sprintf("Attenuation:   %.1f%% of inflation removed by moving SSR to n=30\n"
             pct_recovered))
 ```
 
-```{r results-plot, fig.cap="Type I error: calibration target, primary (SSR at n=45), and Version B negative control (SSR at n=30). The negligible attenuation (~0.8%) when SSR is moved earlier largely rules out SSR timing as the primary driver; prior-data conflict persists as the dominant mechanism."}
+```{r results-plot, fig.cap="Type I error: calibration target, primary (SSR at n=45), and Version B (SSR at n=30). Moving SSR earlier recovers only 6.5% of the excess over nominal, so SSR timing is a minor driver; the dominant contribution comes from the monitoring rule itself. This is an SSR-timing sensitivity analysis, not a clean negative control: moving SSR also changes the realised final-N distribution."}
 tibble(
   Scenario = factor(
-    c("Calibration\n(no conflict,\nno trend)",
-      "Primary\n(SSR at n = 45,\nshared F₄₅)",
-      "Version B control\n(SSR at n = 30,\nno co-occur at n = 45)"),
-    levels = c("Calibration\n(no conflict,\nno trend)",
-               "Primary\n(SSR at n = 45,\nshared F₄₅)",
-               "Version B control\n(SSR at n = 30,\nno co-occur at n = 45)")),
+    c("Calibration\n(at anchor,\nno trend)",
+      "Primary\n(SSR at n = 45)",
+      "Version B\n(SSR at n = 30)"),
+    levels = c("Calibration\n(at anchor,\nno trend)",
+               "Primary\n(SSR at n = 45)",
+               "Version B\n(SSR at n = 30)")),
   T1E  = c(t1e_at_star, t1e_primary, t1e_neg),
   fill = c("a", "b", "c")
 ) |>
   ggplot(aes(Scenario, T1E, fill = fill)) +
   geom_col(width = 0.50) +
   geom_hline(yintercept = alpha, linetype = "dashed",
-             color = ZET$red, linetype = "dashed", linewidth = 0.8) +
+             color = ZET$red, linewidth = 0.8) +
   geom_text(aes(label = sprintf("%.4f", T1E)),
             vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
-  scale_fill_manual(values = c(a = ZET$gridline, b = ZET$green, c = ZET$teal)) +
+  scale_fill_manual(values = c(a = ZET$neutralF, b = ZET$green, c = ZET$teal)) +
   scale_y_continuous(limits = c(0, max(t1e_primary, t1e_neg, 0.04) * 1.30),
                      labels = percent_format(accuracy = 0.1)) +
-  labs(title    = "Pipeline-Level Type I Error: Primary vs. Version B Negative Control",
+  labs(title    = "Pipeline-Level Type I Error: SSR Timing Sensitivity",
        subtitle = bquote(
-         "Two-arm design, MAP prior, conflict" ~ p[c] == .(sprintf("%.2f", p0_conflict)) ~
-         "(prior" ~ .(sprintf("%.2f,", p0)) ~ "trend" ~ δ == .(sprintf("%.2f)", delta_trend))),
+         "Two-arm design, MAP prior, departure" ~ p[c] == .(sprintf("%.2f", p0_conflict)) ~
+         "(anchor" ~ .(sprintf("%.2f,", p0)) ~ "trend" ~ δ == .(sprintf("%.2f)", delta_trend))),
        x = NULL, y = "Type I error") +
   theme_zetyra() + theme(legend.position = "none")
 ```
@@ -790,11 +968,11 @@ tibble(
 ```{r results-table}
 tribble(
   ~Scenario, ~T1E, ~`vs. nominal`, ~Note,
-  "Calibration (no conflict/trend)", t1e_at_star, "—", "threshold target",
-  "Primary: SSR co-occurs at n=45", t1e_primary,
-    sprintf("%+.1f%%", inflation_pct), "shared F₄₅",
-  "Version B: SSR at n = 30 (not n = 45)", t1e_neg,
-    sprintf("%+.1f%%", (t1e_neg - alpha)/alpha*100), "no co-occur at n=45"
+  "Calibration (at anchor, no trend)", t1e_at_star, "—", "threshold target",
+  "Primary: SSR at n = 45", t1e_primary,
+    sprintf("%+.1f%%", inflation_pct), "SSR at the n=45 look",
+  "Version B: SSR at n = 30", t1e_neg,
+    sprintf("%+.1f%%", (t1e_neg - alpha)/alpha*100), "SSR at the n=30 look"
 ) |>
   mutate(T1E = sprintf("%.4f", T1E)) |>
   kable(caption = paste("Type I error summary. Version B tests SSR timing as a causal variable;",
@@ -806,13 +984,18 @@ tribble(
 
 ## 5.4 Factorial Decomposition
 
-Running four designs (SSR × RAR) decomposes the inflation into additive components
-and interaction. A positive interaction term would indicate super-additivity;
-a negative term indicates slight sub-additivity, meaning the combined inflation
-is marginally less than the sum of individual contributions.
+Running four designs (SSR × RAR) shows what happens when each adaptive component
+is switched off.
+
+**These are ablations at a fixed threshold, not a decomposition.** $\gamma^*$ was
+calibrated with SSR and RAR *active*. The ablation cells retain that threshold,
+so they are not calibrated to $\alpha$: with both components disabled the
+monitoring rule under $\gamma^*$ sits near 0.05 at the anchor with no trend,
+twice nominal, before any departure or trend. Do not read the baseline cell as
+an attributable share.
 
 All four conditions use the same monitoring threshold $\gamma^*$ and the same
-prior-data conflict and time trend parameters as the primary simulation.
+baseline-rate departure and time trend as the primary simulation.
 
 ```{r factorial}
 #| cache: true
@@ -825,13 +1008,13 @@ factorial_grid <- expand.grid(use_ssr = c(FALSE, TRUE),
                                use_rar = c(FALSE, TRUE))
 
 t1e_factorial <- apply(factorial_grid, 1, function(row) {
-  mean(replicate(N_sim_sens,
-    simulate_one_trial(gamma    = gamma_star,
+  t1e_at(replicate(N_sim_sens,
+    simulate_one_trial(mix    = prior_mix,
                        p_true_e = p0_conflict,  # H0: p_e = p_c = p0_conflict
                        p_c_data = p0_conflict,
                        delta    = delta_trend,
                        use_ssr  = as.logical(row["use_ssr"]),
-                       use_rar  = as.logical(row["use_rar"]))))
+                       use_rar  = as.logical(row["use_rar"]))), gamma_star)
 })
 
 factorial_res <- factorial_grid |>
@@ -855,9 +1038,30 @@ delta_f_ssr  <- t1e_f_ssr  - t1e_f_base
 delta_f_rar  <- t1e_f_rar  - t1e_f_base
 delta_f_int  <- t1e_f_both - t1e_f_ssr - t1e_f_rar + t1e_f_base
 
-cat(sprintf("Δ_SSR         = %+.4f\n", delta_f_ssr))
-cat(sprintf("Δ_RAR         = %+.4f\n", delta_f_rar))
-cat(sprintf("Δ_interaction = %+.4f  (super-additive if > 0)\n", delta_f_int))
+# Report the CELL VALUES first, then the contrasts.
+#
+# NOTE (2026-07 correction): earlier versions printed only the three contrasts.
+# That concealed the single most important number in the study -- the baseline
+# cell, in which Bayesian monitoring runs with NO adaptive component. If the
+# baseline is already far above alpha, then switching the adaptive components
+# off does not restore control. NOTE this cell keeps gamma*, which was
+# calibrated with SSR+RAR active, so it is NOT at nominal even at the anchor
+# (~0.05). It is an ablation, not an attributable share.
+cat("Cell values (Type I error):\n")
+cat(sprintf("  monitoring only        = %.4f  (MCSE %.4f)\n",
+            t1e_f_base, mcse(t1e_f_base, N_sim_sens)))
+cat(sprintf("  + SSR only             = %.4f  (MCSE %.4f)\n",
+            t1e_f_ssr,  mcse(t1e_f_ssr,  N_sim_sens)))
+cat(sprintf("  + RAR only             = %.4f  (MCSE %.4f)\n",
+            t1e_f_rar,  mcse(t1e_f_rar,  N_sim_sens)))
+cat(sprintf("  + SSR and RAR          = %.4f  (MCSE %.4f)\n",
+            t1e_f_both, mcse(t1e_f_both, N_sim_sens)))
+cat(sprintf("\n  NOTE: ablation cells retain the full-design threshold and are\n"))
+cat(sprintf("        not separately calibrated; do not read as attributable shares.\n"))
+cat("\nContrasts:\n")
+cat(sprintf("  Δ_SSR         = %+.4f\n", delta_f_ssr))
+cat(sprintf("  Δ_RAR         = %+.4f\n", delta_f_rar))
+cat(sprintf("  Δ_interaction = %+.4f  (super-additive if > 0)\n", delta_f_int))
 
 # Bar chart
 factorial_res |>
@@ -868,7 +1072,7 @@ factorial_res |>
              color = ZET$red, linewidth = 0.8) +
   geom_text(aes(label = sprintf("%.4f", T1E)),
             vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
-  scale_fill_manual(values = c(`FALSE` = ZET$gridline, `TRUE` = ZET$green)) +
+  scale_fill_manual(values = c(`FALSE` = ZET$neutralF, `TRUE` = ZET$green)) +
   scale_y_continuous(limits = c(0, max(t1e_factorial) * 1.30),
                      labels = percent_format(accuracy = 0.1)) +
   labs(title    = "Factorial Decomposition: SSR × RAR",
@@ -897,7 +1101,44 @@ tribble(
 
 ---
 
-## 5.5 Mechanism Isolation: Prior–Data Conflict vs. Time Trend
+### Fresh-seed check on the SSR × RAR interaction
+
+The interaction is the one composition result whose magnitude matters, so it is
+re-estimated here on an independent seed with an independent replication count.
+This is a repeat within the same R implementation, not an independent
+reimplementation: it guards against a seed artefact, not against a shared
+modelling error.
+
+```{r factorial-fresh-seed}
+#| cache: true
+set.seed(73028L)
+N_fresh <- 3000L
+
+fresh <- vapply(seq_len(4), function(k) {
+  us <- k %in% c(2, 4)          # SSR on for cells 2 and 4
+  ur <- k %in% c(3, 4)          # RAR on for cells 3 and 4
+  t1e_at(replicate(N_fresh,
+    simulate_one_trial(mix = prior_mix,
+                       p_true_e = p0_conflict, p_c_data = p0_conflict,
+                       delta = delta_trend,
+                       use_ssr = us, use_rar = ur)), gamma_star)
+}, numeric(1))
+
+names(fresh) <- c("base", "ssr", "rar", "both")
+int_fresh <- fresh["both"] - fresh["ssr"] - fresh["rar"] + fresh["base"]
+se_fresh  <- sqrt(sum(mcse(fresh, N_fresh)^2))
+
+cat(sprintf("Fresh seed 73028, N = %d per cell\n", N_fresh))
+for (nm in names(fresh))
+  cat(sprintf("  %-5s = %.4f  (MCSE %.4f)\n", nm, fresh[nm], mcse(fresh[nm], N_fresh)))
+cat(sprintf("\n  interaction = %+.4f  (MCSE %.4f)  95%% SI [%+.4f, %+.4f]\n",
+            int_fresh, se_fresh, int_fresh - 1.96*se_fresh, int_fresh + 1.96*se_fresh))
+cat(sprintf("  primary-run interaction for comparison: %+.4f\n", delta_f_int))
+```
+
+---
+
+## 5.5 Baseline-Rate Departure × Time Trend
 
 The primary simulation activates both mechanisms simultaneously. Here we isolate them
 in a 2× 2 design (conflict × trend) to show each independently contributes,
@@ -906,7 +1147,7 @@ and that co-occurrence amplifies beyond either alone.
 ```{r mechanism-isolation}
 #| cache: true
 
-cat("Mechanism isolation: 2x2 conflict x trend\n")
+cat("Factor crossing: 2x2 baseline-rate departure x trend\n")
 set.seed(4000L)
 
 mech_grid <- expand.grid(
@@ -918,21 +1159,21 @@ t1e_mech <- apply(mech_grid, 1, function(row) {
   p_c <- if (row["conflict"]) p0_conflict else p0   # 0.30 vs 0.25
   d   <- if (row["trend"])    delta_trend  else 0    # 0.05 vs 0
   # H0: p_true_e = p_c_data (both arms at same rate, MAP prior is what conflicts)
-  mean(replicate(N_sim_sens,
-    simulate_one_trial(gamma    = gamma_star,
+  t1e_at(replicate(N_sim_sens,
+    simulate_one_trial(mix    = prior_mix,
                        p_true_e = p_c,   # H0 preserved: same rate as control
                        p_c_data = p_c,
                        delta    = d,
                        use_ssr  = TRUE,
-                       use_rar  = TRUE)))
+                       use_rar  = TRUE)), gamma_star)
 })
 
 mech_res <- mech_grid |>
   mutate(T1E   = t1e_mech,
          label = case_when(
            !conflict & !trend ~ "Neither\n(calibration)",
-           conflict  & !trend ~ "Conflict only\n(no trend)",
-           !conflict & trend  ~ "Trend only\n(no conflict)",
+           conflict  & !trend ~ "Departure only\n(no trend)",
+           !conflict & trend  ~ "Trend only\n(at anchor)",
            conflict  & trend  ~ "Both\n(primary)"
          ))
 
@@ -945,7 +1186,7 @@ t1e_both_mech<- mech_res$T1E[ mech_res$conflict &  mech_res$trend]
 additive_pred <- t1e_conf_only + t1e_trend_only - t1e_neither
 interaction_term <- t1e_both_mech - additive_pred
 
-cat(sprintf("Conflict only:    %.4f  (+%.4f vs. calibration)\n",
+cat(sprintf("Departure only:   %.4f  (+%.4f vs. calibration)\n",
             t1e_conf_only,  t1e_conf_only  - t1e_neither))
 cat(sprintf("Trend only:       %.4f  (+%.4f vs. calibration)\n",
             t1e_trend_only, t1e_trend_only - t1e_neither))
@@ -957,24 +1198,28 @@ mech_res |>
   mutate(label = factor(label, levels = label)) |>
   ggplot(aes(label, T1E,
              fill = factor(conflict + trend * 2,
-                           labels = c("Neither","Conflict","Trend","Both")))) +
+                           labels = c("Neither","Departure","Trend","Both")))) +
   geom_col(width = 0.52) +
   geom_hline(yintercept = alpha, linetype = "dashed",
              color = ZET$red, linewidth = 0.8) +
   geom_hline(yintercept = additive_pred, linetype = "dotted",
-             color = ZET$muted, linewidth = 0.8) +
-  annotate("text", x = 3.5, y = additive_pred + 0.004,
+             color = ZET$slate, linewidth = 1.0) +
+  # Centre the label vertically between the dotted additive line and the next
+  # gridline above it, so it crowds neither. floor()+1 rather than ceiling()
+  # keeps this correct if additive_pred ever lands exactly on a gridline.
+  annotate("text", x = 3.5,
+           y = (additive_pred + (floor(additive_pred / 0.05) + 1) * 0.05) / 2,
            label = sprintf("Additive prediction: %.4f", additive_pred),
-           size = 3, color = ZET$slate, hjust = 1) +
+           size = 4.1, fontface = "bold", color = ZET$ink, hjust = 1) +
   geom_text(aes(label = sprintf("%.4f", T1E)),
             vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
-  scale_fill_manual(values = c(Neither  = ZET$gridline,
-                                Conflict = "#2563EB",
+  scale_fill_manual(values = c(Neither  = ZET$neutralF,
+                                Departure = "#2563EB",
                                 Trend    = ZET$teal,
                                 Both     = ZET$green)) +
   scale_y_continuous(limits = c(0, max(t1e_mech) * 1.35),
                      labels = percent_format(accuracy = 0.1)) +
-  labs(title    = "Mechanism Isolation: Prior–Data Conflict × Time Trend",
+  labs(title    = "Baseline-Rate Departure × Time Trend",
        subtitle = paste("Dotted = additive prediction. Interaction =",
                          sprintf("%+.4f", interaction_term),
                          "(amplification if above dotted line)"),
@@ -986,22 +1231,115 @@ mech_res |>
 tribble(
   ~Condition, ~T1E, ~`vs. calibration`, ~Note,
   "Neither (calibration)",    t1e_neither,   "—",              "threshold target",
-  "Conflict only (no trend)", t1e_conf_only,
-    sprintf("%+.4f", t1e_conf_only - t1e_neither),  "MAP prior conflict",
-  "Trend only (no conflict)", t1e_trend_only,
-    sprintf("%+.4f", t1e_trend_only - t1e_neither), "RAR drift",
+  "Departure only (no trend)", t1e_conf_only,
+    sprintf("%+.4f", t1e_conf_only - t1e_neither),  "prior away from realised rate",
+  "Trend only (at anchor)", t1e_trend_only,
+    sprintf("%+.4f", t1e_trend_only - t1e_neither), "rate drifts from anchor",
   "Both (primary)",           t1e_both_mech,
     sprintf("%+.4f", t1e_both_mech - t1e_neither),  sprintf("interaction = %+.4f", interaction_term)
 ) |>
   mutate(T1E = sprintf("%.4f", T1E)) |>
-  kable(caption = paste("2x2 mechanism isolation. Each mechanism alone induces mild",
-                        "deviation; co-occurrence amplifies beyond the additive prediction."),
+  kable(caption = paste("2x2 crossing of baseline-rate departure and time trend.",
+                        "Each factor alone raises T1E; jointly they exceed the",
+                        "additive prediction. Both act through the monitoring rule,",
+                        "so this crosses factors rather than isolating mechanisms."),
         align = c("l","r","r","l"))
 ```
 
 ---
 
-## 5.6 Sensitivity Analysis
+## 5.6 Type I Error Across the Composite Null
+
+The scenarios above each evaluate Type I error at a single control rate. But
+$H_0$ here is composite: it holds for *every* common rate $p_e = p_c = p$, not
+only at $p = 0.25$. Type I error control is a statement about the supremum
+over that set, so a single-point evaluation cannot establish it.
+
+Sweeping $p$ separates two questions that the single-point analysis conflates:
+how the calibrated design behaves away from its calibration point, and what
+enabling the adaptive components changes at that same threshold.  Note that the
+comparison series holds $\gamma^*$ at the value calibrated for the *full*
+design and merely disables SSR and RAR; it is a fixed-threshold ablation, not a
+separately calibrated monitoring-only design.
+
+Three caveats govern how the sweep should be read.
+
+**The crossing point is not sharply identified.** The composition effect is
+clearly negative at low evaluated rates and clearly positive at high ones, but
+the individual effects at $p = 0.25$ ($-0.0070$) and $p = 0.27$ ($+0.0078$)
+are each within their Monte Carlo error. Locating the crossing would require
+more replications or paired common-random-number contrasts; the defensible
+claim is the direction change across the range, not its position.
+
+**The SSR rule shares a threshold with the sweep.** SSR is a pooled
+one-sample conditional-power rule tested against $p_0 = 0.25$, while the final
+estimand is the two-arm comparison $p_e > p_c$. Because SSR activates near
+that same 0.25, the apparent crossing may partly reflect the construction of
+the SSR rule rather than a general property of composition.
+
+**Extended trials accrue more drift.** With drift anchored to the planned
+horizon $n_{\text{base}} = 90$, a trial expanded to $n = 150$ experiences
+total drift of $0.05 \times 149/89 \approx 0.084$, not $0.05$. This is
+coherent -- a longer trial spans more calendar time -- but it means the
+estimated SSR effect and the interaction include the additional secular-trend
+exposure created by extending enrollment. A fixed-terminal-drift alternative
+would separate the two and is worth reporting alongside.
+
+```{r composite-null-sweep}
+#| cache: true
+p_null_grid <- c(0.20, 0.22, 0.25, 0.27, 0.30, 0.33, 0.36)
+set.seed(600L)
+
+sweep_rows <- lapply(p_null_grid, function(pn) {
+  mon <- t1e_at(replicate(N_sim_sens,
+           simulate_one_trial(mix = prior_mix, p_true_e = pn, p_c_data = pn,
+                              delta = delta_trend,
+                              use_ssr = FALSE, use_rar = FALSE)), gamma_star)
+  all <- t1e_at(replicate(N_sim_sens,
+           simulate_one_trial(mix = prior_mix, p_true_e = pn, p_c_data = pn,
+                              delta = delta_trend,
+                              use_ssr = TRUE,  use_rar = TRUE)), gamma_star)
+  tibble(p = pn, `SSR + RAR disabled` = mon, `All mechanisms` = all,
+         `Composition effect` = all - mon)
+})
+composite_null <- bind_rows(sweep_rows)
+
+composite_null |>
+  mutate(across(c(`SSR + RAR disabled`, `All mechanisms`),
+                ~ sprintf("%.4f", .x)),
+         `Composition effect` = sprintf("%+.4f", `Composition effect`)) |>
+  kable(caption = paste("Type I error across the composite null",
+                        "(p_e = p_c = p, trend active). Both columns hold the",
+                        "full-design threshold gamma* fixed; 'SSR + RAR",
+                        "disabled' is an ablation, not a separately calibrated",
+                        "design. Neither attains nominal across the range, and",
+                        "the sign of the composition effect depends on where in",
+                        "the null the design is evaluated."),
+        align = c("r","r","r","r"))
+```
+
+```{r composite-null-plot, fig.cap="Type I error across the composite null. Grey holds the full-design threshold gamma* with SSR and RAR disabled; green is the full design. At that fixed threshold, enabling SSR and RAR lowers T1E at small p and raises it at large p. Grey is a fixed-threshold ablation, not a separately calibrated monitoring-only design, so the gap between the series is not an attributable share."}
+composite_null |>
+  select(p, `SSR + RAR disabled`, `All mechanisms`) |>
+  pivot_longer(-p, names_to = "Design", values_to = "T1E") |>
+  ggplot(aes(p, T1E, color = Design, shape = Design)) +
+  geom_hline(yintercept = alpha, linetype = "dashed",
+             color = ZET$red, linewidth = 0.8) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.8) +
+  scale_color_manual(values = c(`SSR + RAR disabled` = ZET$neutralL,
+                                `All mechanisms`  = ZET$green)) +
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  labs(title    = "Type I Error Across the Composite Null",
+       subtitle = bquote("Dashed red = nominal " * alpha * " = 0.025"),
+       x = bquote("Common baseline rate " * p), y = "Type I error") +
+  theme_zetyra() + theme(legend.position = "bottom")
+```
+
+---
+
+## 5.7 Sensitivity Analysis
 
 
 All three sweeps pass the relevant parameter directly into `simulate_one_trial()`.
@@ -1009,18 +1347,19 @@ No global variables are mutated.
 
 ```{r sens-prior-weight}
 #| cache: true
+# Swept quantity is the weight on the FLAT robustify() component: larger
+# w_vague = less borrowing from the historical prior.
 w_grid <- seq(0, 0.90, by = 0.10)
 set.seed(300L)
 
 t1e_w <- sapply(w_grid, function(w) {
-  mean(replicate(N_sim_sens,
-                 simulate_one_trial(gamma    = gamma_star,
+  t1e_at(replicate(N_sim_sens,
+                 simulate_one_trial(mix    = set_vague_weight(prior_mix, w),
                                     p_true_e = p0_conflict,
                                     p_c_data = p0_conflict,
                                     delta    = delta_trend,
-                                    w_inf    = w,         # varied here
                                     use_ssr  = TRUE,
-                                    use_rar  = TRUE)))
+                                    use_rar  = TRUE)), gamma_star)
 })
 
 p_w <- tibble(w = w_grid, t1e = t1e_w) |>
@@ -1030,7 +1369,7 @@ p_w <- tibble(w = w_grid, t1e = t1e_w) |>
   geom_hline(yintercept = alpha, linetype = "dashed", color = ZET$red) +
   scale_x_continuous(labels = percent_format()) +
   scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
-  labs(title = "Prior Weight", x = bquote(w[inf]), y = "T1E") +
+  labs(title = "Vague-Component Weight", x = bquote(w[vague]), y = "T1E") +
   theme_zetyra()
 ```
 
@@ -1040,14 +1379,13 @@ delta_grid <- seq(0, 0.15, by = 0.025)
 set.seed(400L)
 
 t1e_d <- sapply(delta_grid, function(d) {
-  mean(replicate(N_sim_sens,
-                 simulate_one_trial(gamma    = gamma_star,
+  t1e_at(replicate(N_sim_sens,
+                 simulate_one_trial(mix    = prior_mix,
                                     p_true_e = p0_conflict,
                                     p_c_data = p0_conflict,
                                     delta    = d,          # varied here
-                                    w_inf    = w_inf,
                                     use_ssr  = TRUE,
-                                    use_rar  = TRUE)))
+                                    use_rar  = TRUE)), gamma_star)
 })
 
 p_d <- tibble(d = delta_grid, t1e = t1e_d) |>
@@ -1067,15 +1405,14 @@ ssr_grid <- c(20L, 30L, 40L, 45L, 55L, 60L)
 set.seed(500L)
 
 t1e_ssr <- sapply(ssr_grid, function(nt) {
-  mean(replicate(N_sim_sens,
-                 simulate_one_trial(gamma      = gamma_star,
+  t1e_at(replicate(N_sim_sens,
+                 simulate_one_trial(mix      = prior_mix,
                                     p_true_e   = p0_conflict,  # H0: p_e = p_c = p0_conflict
                                     p_c_data   = p0_conflict,
                                     delta      = delta_trend,
-                                    w_inf      = w_inf,
                                     n_ssr_trig = nt,       # varied here
                                     use_ssr    = TRUE,
-                                    use_rar    = TRUE)))
+                                    use_rar    = TRUE)), gamma_star)
 })
 
 p_ssr <- tibble(
@@ -1116,15 +1453,15 @@ tribble(
 
 ---
 
-## 5.5 Reproducibility
+## 5.8 Reproducibility
 
 ```{r auto-summary}
 #| code-fold: false
 cat(sprintf("gamma*                = %.3f\n", gamma_star))
 cat(sprintf("T1E (calibration)     = %.4f  (target: %.3f)\n", t1e_at_star, alpha))
-cat(sprintf("T1E (mild conflict, p=0.27) = %.4f  (+%.1f%%)\n",
+cat(sprintf("T1E (mild departure, p=0.27) = %.4f  (+%.1f%%)\n",
             t1e_mild, inflation_pct_mild))
-cat(sprintf("T1E (strong conflict, p=0.30) = %.4f  (+%.1f%%)\n",
+cat(sprintf("T1E (strong departure, p=0.30) = %.4f  (+%.1f%%)\n",
             t1e_primary, inflation_pct))
 cat(sprintf("T1E (Version B, n_ssr=30)     = %.4f  (+%.1f%%)\n",
             t1e_neg, (t1e_neg - alpha)/alpha*100))
@@ -1133,8 +1470,8 @@ cat(sprintf("\nFactorial decomposition:\n"))
 cat(sprintf("  Delta_SSR         = %+.4f\n", delta_f_ssr))
 cat(sprintf("  Delta_RAR         = %+.4f\n", delta_f_rar))
 cat(sprintf("  Delta_interaction = %+.4f\n", delta_f_int))
-cat(sprintf("\nMechanism isolation:\n"))
-cat(sprintf("  Conflict only     = +%.4f\n", t1e_conf_only  - t1e_neither))
+cat(sprintf("\nBaseline-rate departure x trend:\n"))
+cat(sprintf("  Departure only    = +%.4f\n", t1e_conf_only  - t1e_neither))
 cat(sprintf("  Trend only        = +%.4f\n", t1e_trend_only - t1e_neither))
 cat(sprintf("  Both (primary)    = +%.4f\n", t1e_both_mech  - t1e_neither))
 cat(sprintf("  Interaction term  = %+.4f\n", interaction_term))
@@ -1143,16 +1480,16 @@ cat(sprintf("  Interaction term  = %+.4f\n", interaction_term))
 ```{r mcse-table}
 mcse_tbl <- tribble(
   ~Estimate,                     ~T1E,           ~N_sim,
-  "Calibration (no conflict)",   t1e_at_star,    N_sim_calib,
-  "Mild conflict (p=0.27)",      t1e_mild,       N_sim_main,
-  "Strong conflict (p=0.30)",    t1e_primary,    N_sim_main,
+  "Calibration (at anchor)",     t1e_at_star,    N_sim_calib,
+  "Mild departure (p=0.27)",     t1e_mild,       N_sim_main,
+  "Strong departure (p=0.30)",   t1e_primary,    N_sim_main,
   "Version B (SSR at n = 30)",     t1e_neg,        N_sim_main,
   "Factorial: baseline",         t1e_f_base,     N_sim_sens,
   "Factorial: SSR only",         t1e_f_ssr,      N_sim_sens,
   "Factorial: RAR only",         t1e_f_rar,      N_sim_sens,
   "Factorial: SSR + RAR",        t1e_f_both,     N_sim_sens,
   "Mech. isol.: neither",        t1e_neither,    N_sim_sens,
-  "Mech. isol.: conflict only",  t1e_conf_only,  N_sim_sens,
+  "Departure x trend: departure only", t1e_conf_only, N_sim_sens,
   "Mech. isol.: trend only",     t1e_trend_only, N_sim_sens,
   "Mech. isol.: both",           t1e_both_mech,  N_sim_sens
 ) |>
@@ -1175,7 +1512,7 @@ kable(mcse_tbl,
 # Interaction = T1E_both - T1E_A - T1E_B + T1E_neither
 # All four simulations are independent, so Var(interaction) = sum of variances
 
-# Mechanism isolation interaction
+# Departure x trend interaction
 se_mech <- sqrt(
   mcse(t1e_both_mech,  N_sim_sens)^2 +
   mcse(t1e_conf_only,  N_sim_sens)^2 +
@@ -1193,7 +1530,7 @@ se_fact <- sqrt(
 
 int_tbl <- tribble(
   ~`Interaction term`,                    ~Estimate,        ~MCSE,    ~`95% SI`,
-  "Mechanism isolation (conflict × trend)", interaction_term, se_mech,
+  "Departure × trend", interaction_term, se_mech,
     sprintf("[%+.4f, %+.4f]", interaction_term - 1.96*se_mech, interaction_term + 1.96*se_mech),
   "Factorial (SSR × RAR)",                  delta_f_int,     se_fact,
     sprintf("[%+.4f, %+.4f]", delta_f_int - 1.96*se_fact, delta_f_int + 1.96*se_fact)
@@ -1203,8 +1540,11 @@ int_tbl <- tribble(
 
 kable(int_tbl,
       caption = paste("Propagated MCSEs for derived interaction terms.",
-                      "The mechanism-isolation interaction excludes zero;",
-                      "the factorial interaction is within Monte Carlo noise."),
+                      "Both simulation intervals exclude zero. Note the",
+                      "factorial interaction is symmetric: RAR has no",
+                      "marginal effect without SSR but raises T1E when SSR",
+                      "is active (equivalently, SSR's effect is larger under",
+                      "RAR)."),
       align = c("l", "r", "r", "c"))
 ```
 
@@ -1219,7 +1559,7 @@ kable(int_tbl,
 | Primary: mild conflict (p=0.27) | 2028 |
 | Version B control (n<sub>SSR</sub> = 30) | 2027 |
 | Factorial decomposition | 3000 |
-| Mechanism isolation (2x2) | 4000 |
+| Departure × trend (2x2) | 4000 |
 | Sensitivity — prior weight | 300 |
 | Sensitivity — time trend | 400 |
 | Sensitivity — SSR timing | 500 |

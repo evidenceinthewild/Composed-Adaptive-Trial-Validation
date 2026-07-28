@@ -1,5 +1,33 @@
+% ─────────────────────────────────────────────────────────────────────────────
+% References for the simulation study.
+%
+% Corrected 27 July 2026 to match references_manuscript.bib. Changes:
+%   - zhou_lee_yuan_2017 (BOP2) REMOVED. BOP2 is not the source used for the
+%     sequential monitoring boundaries; replaced by zhou_ji_2024.
+%   - weber_rbest author corrected: John W. Seaman III (was "James").
+%   - DOIs added throughout.
+%   - Entries belonging to the manuscript's platform appendix rather than to
+%     this document (anderson_gsdesign, nct03377023, barker_ispy2,
+%     angus_remapcap) removed; they live in references_manuscript.bib.
+%
+% fda_bayesian_2026, lee_liu_2008 and saville_2014 are kept as context for the
+% monitoring rule but are not cited inline here, so they will not appear in the
+% rendered reference list.
+% ─────────────────────────────────────────────────────────────────────────────
+
+% ── Regulatory ───────────────────────────────────────────────────────────────
+@misc{fda_bayesian_2026,
+  author       = {{U.S. Food and Drug Administration}},
+  title        = {Use of {B}ayesian Methodology in Clinical Trials of Drug and Biological Products: Draft Guidance for Industry},
+  year         = {2026},
+  month        = {January},
+  howpublished = {Draft guidance for industry; docket FDA-2025-D-3217. Not for implementation; contains non-binding recommendations},
+  url          = {https://www.fda.gov/media/190505/download}
+}
+
+% ── Prior construction and historical borrowing ──────────────────────────────
 @article{weber_rbest,
-  author  = {Weber, Sebastian and Li, Yue and Seaman III, James W. and Kakizume, Tomoyuki and Schmidli, Heinz},
+  author  = {Weber, Sebastian and Li, Yue and Seaman III, John W. and Kakizume, Tomoyuki and Schmidli, Heinz},
   title   = {Applying Meta-Analytic-Predictive Priors with the {R} {B}ayesian Evidence Synthesis Tools},
   journal = {Journal of Statistical Software},
   year    = {2021},
@@ -7,6 +35,40 @@
   number  = {19},
   pages   = {1--32},
   doi     = {10.18637/jss.v100.i19}
+}
+
+@article{viele_2014,
+  author  = {Viele, Kert and Berry, Scott and Neuenschwander, Beat and Amzal, Billy and Chen, Fang and Enas, Nathan and Hobbs, Brian and Ibrahim, Joseph G. and Kinnersley, Nelson and Lindborg, Stacy and Micallef, Sandrine and Roychoudhury, Satrajit and Thompson, Laura},
+  title   = {Use of Historical Control Data for Assessing Treatment Effects in Clinical Trials},
+  journal = {Pharmaceutical Statistics},
+  year    = {2014},
+  volume  = {13},
+  number  = {1},
+  pages   = {41--54},
+  doi     = {10.1002/pst.1589}
+}
+
+@article{tang_2010,
+  author  = {Tang, Hui and Foster, Nathan R. and Grothey, Axel and Ansell, Stephen M. and Goldberg, Richard M. and Sargent, Daniel J.},
+  title   = {Comparison of Error Rates in Single-Arm Versus Randomized Phase {II} Cancer Clinical Trials},
+  journal = {Journal of Clinical Oncology},
+  year    = {2010},
+  volume  = {28},
+  number  = {11},
+  pages   = {1936--1941},
+  doi     = {10.1200/JCO.2009.25.5489}
+}
+
+% ── Bayesian monitoring / predictive probability ─────────────────────────────
+@article{zhou_ji_2024,
+  author  = {Zhou, Tianjian and Ji, Yuan},
+  title   = {On {B}ayesian Sequential Clinical Trial Designs},
+  journal = {The New England Journal of Statistics in Data Science},
+  year    = {2024},
+  volume  = {2},
+  number  = {1},
+  pages   = {136--151},
+  doi     = {10.51387/23-NEJSDS24}
 }
 
 @article{lee_liu_2008,
@@ -31,15 +93,7 @@
   doi     = {10.1177/1740774514531352}
 }
 
-@book{rosenberger_lachin,
-  author    = {Rosenberger, William F. and Lachin, John M.},
-  title     = {Randomization in Clinical Trials: Theory and Practice},
-  edition   = {2nd},
-  publisher = {Wiley},
-  year      = {2016},
-  isbn      = {978-1-118-74555-0}
-}
-
+% ── Response-adaptive randomization ──────────────────────────────────────────
 @article{rosenberger_optimal,
   author  = {Rosenberger, William F. and Stallard, Nigel and Ivanova, Anastasia and Harper, Courtney N. and Ricks, Monica L.},
   title   = {Optimal Adaptive Designs for Binary Response Trials},
@@ -51,60 +105,32 @@
   doi     = {10.1111/j.0006-341X.2001.00909.x}
 }
 
-@misc{fda_bayesian_2026,
-  author       = {{U.S. Food and Drug Administration}},
-  title        = {Use of {B}ayesian Methodology in Clinical Trials of Drug and Biological Products: Draft Guidance for Industry},
+@book{rosenberger_lachin,
+  author    = {Rosenberger, William F. and Lachin, John M.},
+  title     = {Randomization in Clinical Trials: Theory and Practice},
+  edition   = {2nd},
+  publisher = {Wiley},
+  year      = {2016},
+  isbn      = {978-1-118-74555-0}
+}
+
+% ── Platform documentation ───────────────────────────────────────────────────
+@misc{zetyra_whitepaper,
+  author       = {Qian, Lu},
+  title        = {Zetyra: A Validated Suite of Statistical Calculators for Efficient Clinical Trial Design},
   year         = {2026},
-  month        = {January},
-  howpublished = {Draft guidance document},
-  url          = {https://www.fda.gov/regulatory-information/search-fda-guidance-documents/use-bayesian-methodology-clinical-trials-drug-and-biological-products}
+  version      = {2.3},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.20218751},
+  url          = {https://doi.org/10.5281/zenodo.20218751}
 }
 
-@manual{anderson_gsdesign,
-  author  = {Anderson, Keaven M.},
-  title   = {gsDesign: Group Sequential Design},
-  year    = {2026},
-  note    = {{R} package version 3.9.0},
-  url     = {https://CRAN.R-project.org/package=gsDesign}
-}
-
-@misc{nct03377023,
-  author       = {{ClinicalTrials.gov}},
-  title        = {Phase {I/II} Study of Nivolumab and Ipilimumab Combined with Nintedanib in Non Small Cell Lung Cancer},
-  year         = {2017},
-  howpublished = {ClinicalTrials.gov identifier NCT03377023},
-  url          = {https://clinicaltrials.gov/ct2/show/NCT03377023}
-}
-
-@article{barker_ispy2,
-  author  = {Barker, Anna D. and Sigman, Christine C. and Kelloff, Gary J. and Hylton, Nola M. and Berry, Donald A. and Esserman, Laura J.},
-  title   = {{I-SPY} 2: An Adaptive Breast Cancer Trial Design in the Setting of Neoadjuvant Chemotherapy},
-  journal = {Clinical Pharmacology \& Therapeutics},
-  year    = {2009},
-  volume  = {86},
-  number  = {1},
-  pages   = {97--100},
-  doi     = {10.1038/clpt.2009.68}
-}
-
-@article{angus_remapcap,
-  author  = {Angus, Derek C. and others},
-  title   = {Effect of Hydrocortisone on Mortality and Organ Support in Patients with Severe {COVID-19}},
-  journal = {JAMA},
-  year    = {2020},
-  volume  = {324},
-  number  = {13},
-  pages   = {1317--1329},
-  doi     = {10.1001/jama.2020.17022}
-}
-
-@article{zhou_lee_yuan_2017,
-  author  = {Zhou, Heng and Lee, J. Jack and Yuan, Ying},
-  title   = {{BOP2}: {B}ayesian Optimal Design for Phase {II} Clinical Trials with Simple and Complex Endpoints},
-  journal = {Statistics in Medicine},
-  year    = {2017},
-  volume  = {36},
-  number  = {21},
-  pages   = {3302--3314},
-  doi     = {10.1002/sim.7338}
+@misc{zetyra_bayesian_toolkit,
+  author       = {Qian, Lu},
+  title        = {Zetyra Bayesian Toolkit: A Comprehensive Suite of Validated {B}ayesian Calculators for Clinical Trial Design},
+  year         = {2026},
+  version      = {1.0},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.18880066},
+  url          = {https://doi.org/10.5281/zenodo.18880066}
 }

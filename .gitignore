@@ -24,3 +24,9 @@ _cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# Machine-specific release manifest (copy tools/release/copies.example.toml)
+copies.toml
+
+__pycache__/
+*.pyc
