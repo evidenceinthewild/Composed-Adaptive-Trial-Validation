@@ -59,31 +59,27 @@
 % ── Abstract ──────────────────────────────────────────────────────────────────
 \begin{abstract}
 \noindent
-Efficacy thresholds for Bayesian monitoring are commonly calibrated at a single
-assumed control rate.  We show by simulation that in a two-arm Phase~II design
-with historical borrowing on the control arm, such point calibration does not
-deliver Type~I error (T1E) control across the composite null.  With the
-threshold calibrated to $\alpha = 0.025$ at the design anchor $p_0 = 0.25$
-with no time trend, we evaluate a one-dimensional slice of the null in which a
-shared time trend is active throughout.  Along that slice T1E rises
-monotonically with the common baseline rate, reaching 0.2618 at $p = 0.36$ with
-all adaptive mechanisms active.  Ablations that disable individual components while
-\emph{holding the full-design threshold fixed} do not restore control: with
-SSR and RAR disabled, the fixed-threshold ablation still yields
-T1E $= 0.1170$ at $p = 0.30$.
-Because those ablations are not separately calibrated, we report them as
-ablations rather than as a decomposition of attributable shares.  Sample size
-re-estimation (SSR) and response-adaptive randomization (RAR) modify the
-excess substantially and nonlinearly---RAR has
-essentially no marginal effect without SSR ($-0.0018$) but adds $+0.0314$ when
-SSR is active (interaction $+0.0332$, 95\% SI $[+0.0144, +0.0520]$).  Across the
-evaluated null, the fixed-$\gamma^*$ difference between the full design and the
-SSR-and-RAR-disabled ablation \emph{reverses sign}, from $-0.0212$ at
-$p = 0.20$ to $+0.0886$ at $p = 0.36$.  Departure from the
-calibration anchor and time trends are themselves super-additive (interaction
-$+0.0288$, 95\% SI $[+0.0136, +0.0440]$).  The grid demonstrates a control
-failure but does not locate the supremum.  Operating characteristics should be
-evaluated across the composite null rather than at a single assumed rate.
+Efficacy thresholds for Bayesian monitoring are often calibrated at a single
+assumed control rate.  We examined whether such point calibration controls
+Type~I error (T1E) across the composite null in a two-arm Phase~II design with
+historical control borrowing, Bayesian monitoring, sample size re-estimation
+(SSR), and response-adaptive randomization (RAR).  Each component passed its
+numerical benchmark check, but none of those checks evaluated T1E away from the
+calibration anchor.
+
+The full-design threshold was calibrated to $\alpha = 0.025$ at $p_0 = 0.25$
+with no time trend.  We then evaluated a one-dimensional null slice spanning
+common baseline rates $p = 0.20$--$0.36$, with a shared trend active in both
+arms.  With all mechanisms active, T1E rose from 0.0124 to 0.2618.  At the same
+fixed threshold, disabling SSR and RAR did not restore control; the ablation
+reached 0.1732 at $p = 0.36$.  The fixed-threshold difference between the full
+design and the ablation reversed sign across the range.  Two R runs also
+indicated a positive SSR~$\times$~RAR interaction, although an independent
+Python estimate was smaller and inconclusive.
+
+The grid demonstrates a control failure but does not locate the supremum.
+Operating characteristics should therefore be evaluated across prespecified
+null-generating conditions, not only at the calibration anchor.
 \end{abstract}
 
 \vspace{4pt}\hrule\vspace{10pt}
