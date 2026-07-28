@@ -68,9 +68,9 @@ with no time trend, we evaluate a one-dimensional slice of the null in which a
 shared time trend is active throughout.  Along that slice T1E rises
 monotonically with the common baseline rate, reaching 0.2618 at $p = 0.36$ with
 all adaptive mechanisms active.  Ablations that disable individual components while
-\emph{holding the full-design threshold fixed} show that the excess is not
-created by the adaptive components alone: with SSR and RAR both disabled, the
-monitoring rule under that threshold still yields 0.1170 at $p = 0.30$.
+\emph{holding the full-design threshold fixed} do not restore control: with
+SSR and RAR disabled, the fixed-threshold ablation still yields
+T1E $= 0.1170$ at $p = 0.30$.
 Because those ablations are not separately calibrated, we report them as
 ablations rather than as a decomposition of attributable shares.  Sample size
 re-estimation (SSR) and response-adaptive randomization (RAR) modify the
@@ -194,19 +194,6 @@ Figure~\ref{fig:composed} illustrates the structure.
 
 
 
-\textit{How this grid should be read.}  Three limits govern it, and they apply
-equally to every result that follows.  We do not claim a crossing point: the
-effects at $p = 0.25$ ($-0.0070$) and $p = 0.27$ ($+0.0078$) are each within
-Monte Carlo error, so the sweep establishes the direction change, not its
-location.  The SSR rule is a pooled one-sample conditional-power test against
-$p_0 = 0.25$ while the estimand is the two-arm comparison, so because SSR
-activates near that same value the apparent reversal location may partly
-reflect the rule's construction.  And uniform Type~I error control over the
-composite null requires T1E $\leq \alpha$ at \emph{every} point in it: the grid contains multiple
-clear violations and therefore \emph{demonstrates} failure, but it does not
-locate the supremum, establishing only that it is at least 0.2618 --- the
-largest value observed, at the upper grid boundary, where the curve was still
-rising.
 
 \begin{figure}[!t]
   \centering
@@ -214,9 +201,8 @@ rising.
   \caption{Composed adaptive design: three components (Bayesian monitoring,
   single-arm SSR, RAR), each passing its numerical benchmark check
   (\textsc{pass}), all reading the same interim data before the final analysis.
-  Marginal calibration of the monitoring rule and separate checks of the
-  adaptation rules place no constraint on
-  $P_0(\phi_{\text{comp}}(X) = 1)$.  Holding $\gamma^*$ fixed at the value calibrated
+  Point calibration constrains the composed rule at the anchor but places no
+  bound elsewhere in the null; the separate component checks add no such bound.  Holding $\gamma^*$ fixed at the value calibrated
   for the full design, switching SSR and RAR off does not restore control, and
   the mechanisms interact rather than combining additively.  These are
   fixed-threshold ablations, not separately calibrated designs, and therefore
@@ -373,6 +359,20 @@ threshold unchanged'', not as a calibrated monitoring-only design.  Second,
 raises it at high $p$}: the difference runs from $-0.0212$ at $p = 0.20$ to
 $+0.0886$ at $p = 0.36$, reversing sign across the range.
 
+\textit{How this grid should be read.}  Three limits govern it, and they apply
+equally to every result that follows.  We do not claim a crossing point: the
+effects at $p = 0.25$ ($-0.0070$) and $p = 0.27$ ($+0.0078$) are each within
+Monte Carlo error, so the sweep establishes the direction change, not its
+location.  The SSR rule is a pooled one-sample conditional-power test against
+$p_0 = 0.25$ while the estimand is the two-arm comparison, so because SSR
+activates near that same value the apparent reversal location may partly
+reflect the rule's construction.  And uniform Type~I error control over the
+composite null requires T1E $\leq \alpha$ at \emph{every} point in it: the grid contains multiple
+clear violations and therefore \emph{demonstrates} failure, but it does not
+locate the supremum, establishing only that it is at least 0.2618 --- the
+largest value observed, at the upper grid boundary, where the curve was still
+rising.
+
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.90\textwidth]{figures/composite-null-plot-1.png}
@@ -397,7 +397,7 @@ Four designs (SSR $\times$ RAR), all at $p = 0.30$ with the trend active:
 \toprule
 Condition & T1E & MCSE \\
 \midrule
-Bayesian monitoring only & 0.1170 & 0.0045 \\
+SSR + RAR disabled       & 0.1170 & 0.0045 \\
 $+$ SSR only             & 0.1348 & 0.0048 \\
 $+$ RAR only             & 0.1152 & 0.0045 \\
 $+$ SSR and RAR          & 0.1662 & 0.0053 \\
