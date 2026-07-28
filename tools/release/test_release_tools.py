@@ -324,6 +324,38 @@ class TestConsistency(unittest.TestCase):
             self.assertEqual(code, 0, "a lock file must not block the release")
             self.assertNotIn("UNREADABLE", out)
 
+    def test_declared_slide_chart_passes_undeclared_fails(self):
+        """A presentation variant is legitimate only if the manifest declares it."""
+        import zipfile as zf
+        with Fixture() as f:
+            os.makedirs(os.path.join(f.dir, "figs/render"))
+            os.makedirs(os.path.join(f.dir, "slide-figures"))
+            png = b"\x89PNG\r\n\x1a\n" + b"R" * 60000      # "rendered"
+            slide = b"\x89PNG\r\n\x1a\n" + b"S" * 60000     # slide variant
+            rogue = b"\x89PNG\r\n\x1a\n" + b"X" * 60000     # neither
+            open(os.path.join(f.dir, "figs/render/a.png"), "wb").write(png)
+            open(os.path.join(f.dir, "slide-figures/a-slide.png"), "wb").write(slide)
+
+            def deck(payload):
+                p = os.path.join(f.dir, "deck.pptx")
+                with zf.ZipFile(p, "w") as z:
+                    z.writestr("ppt/media/image1.png", payload)
+
+            man = MANIFEST.replace('path = "deck.pptx"',
+                                   'path = "deck.pptx"\nextra_chart_dirs = ["slide-figures"]')
+            f.write("copies.toml", man)
+
+            deck(slide)
+            code, out = run(check.main, "--manifest", f.manifest,
+                            "--only", "deck_images")
+            self.assertEqual(code, 0, "declared slide chart must pass: " + out)
+
+            deck(rogue)
+            code, out = run(check.main, "--manifest", f.manifest,
+                            "--only", "deck_images")
+            self.assertEqual(code, 1, "undeclared chart must still fail")
+            self.assertIn("STALE", out)
+
     def test_malformed_pptx_is_fatal(self):
         """A container that cannot be opened was never checked -- never warn."""
         with Fixture() as f:

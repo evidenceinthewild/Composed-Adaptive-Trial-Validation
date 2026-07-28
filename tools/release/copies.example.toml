@@ -49,6 +49,10 @@ consumers = [
 [deck]
 path = "JSM 2026 Zetyra 20260803.pptx"
 min_chart_bytes = 50000    # below this an embedded PNG is a logo or icon
+# Presentation-only figures: same numbers as the render, restyled for projection
+# (no title, legend inside, larger type). Declared so they pass, while an
+# undeclared or stale chart still fails.
+extra_chart_dirs = ["slide-figures"]
 
 # ── manuscript copies ───────────────────────────────────────────────────────
 # Exactly one entry must set canonical = true; it is the source of the abstract

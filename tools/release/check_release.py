@@ -232,8 +232,21 @@ def deck_images(m):
     if not os.path.isdir(src):
         print("  ! no rendered figures to compare against")
         return 1
-    cur = {md5(open(os.path.join(src, f), "rb").read()): f
+    cur = {md5(mf.read_bytes(os.path.join(src, f))): f
            for f in os.listdir(src) if f.endswith(".png")}
+    # Presentation-only variants of a rendered figure (no title, legend inside,
+    # larger type) are legitimate deck charts but are not produced by the R
+    # render. They must be DECLARED in the manifest, so an undeclared or stale
+    # chart still fails.
+    for extra in d.get("extra_chart_dirs", []):
+        ed = m.abs(extra)
+        if not os.path.isdir(ed):
+            print(f"  ! declared chart dir missing: {extra}")
+            return 1
+        for f in sorted(os.listdir(ed)):
+            if f.endswith(".png"):
+                cur.setdefault(md5(mf.read_bytes(os.path.join(ed, f))),
+                               f"{extra}/{f}")
     bad = 0
     with zipfile.ZipFile(path) as z:
         for n in sorted(z.namelist()):
