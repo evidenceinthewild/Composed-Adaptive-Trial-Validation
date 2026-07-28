@@ -119,6 +119,12 @@ def sweep(m):
     for dirpath, dirnames, files in os.walk(m.workspace):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         for f in files:
+            # Office owner/lock files (~$name.docx) appear while a document is
+            # open. They are not documents -- they hold no content and are not
+            # valid OOXML -- so treating them as unreadable containers would
+            # block every run made while a file happens to be open in Word.
+            if f.startswith("~$"):
+                continue
             p, rel = os.path.join(dirpath, f), os.path.relpath(
                 os.path.join(dirpath, f), m.workspace)
             try:

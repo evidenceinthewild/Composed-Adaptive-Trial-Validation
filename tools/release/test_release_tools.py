@@ -292,6 +292,14 @@ class TestConsistency(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("BLOCKER", out)
 
+    def test_office_lock_files_are_skipped_not_fatal(self):
+        """~$name.docx appears while Word has a file open; it is not content."""
+        with Fixture() as f:
+            f.write("~$main.docx", "not a zip -- Office owner file")
+            code, out = run(check.main, "--manifest", f.manifest, "--only", "sweep")
+            self.assertEqual(code, 0, "a lock file must not block the release")
+            self.assertNotIn("UNREADABLE", out)
+
     def test_malformed_pptx_is_fatal(self):
         """A container that cannot be opened was never checked -- never warn."""
         with Fixture() as f:
