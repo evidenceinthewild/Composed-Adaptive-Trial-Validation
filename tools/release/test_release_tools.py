@@ -177,6 +177,30 @@ class TestManifest(unittest.TestCase):
         self.assertTrue(any(r"\+208\s*%" in p["pattern"] for p in d["retracted"]),
                         "regex escapes must survive the literal-string parser")
 
+    def test_attribution_pattern_matches_both_percent_spellings(self):
+        """A %-only regex undercounts: the script spells it "65 percent"."""
+        d = mf.parse_toml(mf.read_text(os.path.join(HERE, "copies.example.toml")))
+        pat = next(p["pattern"] for p in d["retracted"]
+                   if p["label"] == "retracted attribution share")
+        for s in ("monitoring accounts for 65% of the excess",
+                  "monitoring accounts for 65 percent of the excess",
+                  "monitoring carries about 70%",
+                  "monitoring carries about 70 percent",
+                  "driven by monitoring, 65 percent of the excess"):
+            self.assertRegex(s, pat, f"missed: {s}")
+
+    def test_prohibition_context_is_allow_listed(self):
+        """"Do not say X" must not be reported as an assertion of X."""
+        with Fixture() as f:
+            f.write("copies.toml", MANIFEST.replace(
+                'allow = ["deliberately quoted"]',
+                'allow = ["deliberately quoted", "Do not say"]'))
+            f.write("main.tex", tex(CANON_PREFIX, "references_main", "env",
+                                    conclusion="Do not say: this is a withdrawn claim."))
+            code, out = run(check.main, "--manifest", f.manifest, "--only", "sweep")
+            self.assertEqual(code, 0, out)
+            self.assertNotIn("BLOCKER", out)
+
     def test_missing_manifest_is_an_error(self):
         with self.assertRaises(mf.ManifestError):
             mf.load(os.path.join(HERE, "does-not-exist.toml"))

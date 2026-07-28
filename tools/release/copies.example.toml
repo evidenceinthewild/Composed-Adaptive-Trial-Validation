@@ -125,7 +125,8 @@ allow_window = 320
 allow = [
   "not a clean negative control", "NOT causal isolation",
   "rather than mechanism isolation", "NOTE (2026-07 correction)",
-  "Do not say", "do not read", "Do NOT say", "not an attributable share",
+  "Do not say", "do not read", "Do NOT say", "Claims to avoid",
+  "not an attributable share",
   "I would not state a share", "REMOVED", "version claim removed",
   "superseded", "retracted",
 ]
@@ -175,7 +176,7 @@ pattern = 'invisible (to component-level|without pipeline)'
 label = "retracted invisibility claim"
 
 [[retracted]]
-pattern = 'accounts for 65|65\s*%\s*of (the )?excess|generate[sd] most of the excess|excess is generated predominantly|predominantly by the monitoring|carries (about )?\d+\s*%|(most|bulk) of the (excess|inflation)|(accounts? for|attributable to|attributed to|contributes|driven by)[^.]{0,40}\d+\s*%\s*of the (excess|inflation)'
+pattern = 'accounts for 65|65\s*(?:%|percent)\s*of (the )?excess|generate[sd] most of the excess|excess is generated predominantly|predominantly by the monitoring|carries (about )?\d+\s*(?:%|percent)|(most|bulk) of the (excess|inflation)|(accounts? for|attributable to|attributed to|contributes|driven by)[^.]{0,40}\d+\s*(?:%|percent)\s*of the (excess|inflation)'
 label = "retracted attribution share"
 
 [[retracted]]
