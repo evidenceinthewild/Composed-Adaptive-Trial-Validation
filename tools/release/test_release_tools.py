@@ -189,6 +189,16 @@ class TestManifest(unittest.TestCase):
                   "driven by monitoring, 65 percent of the excess"):
             self.assertRegex(s, pat, f"missed: {s}")
 
+    def test_headline_pattern_catches_decimal_and_percentage_forms(self):
+        """The same retracted number written two ways must not escape."""
+        d = mf.parse_toml(mf.read_text(os.path.join(HERE, "copies.example.toml")))
+        pat = next(p["pattern"] for p in d["retracted"]
+                   if p["label"] == "old headline T1E")
+        for s in ("T1E of 0.0771 under mild conflict",
+                  "inflated Type I error to 7.7%",
+                  "inflated Type I error to 7.7 percent"):
+            self.assertRegex(s, pat, f"missed: {s}")
+
     def test_prohibition_context_is_allow_listed(self):
         """"Do not say X" must not be reported as an assertion of X."""
         with Fixture() as f:
