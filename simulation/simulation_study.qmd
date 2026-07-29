@@ -372,19 +372,18 @@ stopifnot(abs(sum(.QW) - 1) < 1e-12,
 # data could yield different decisions. Deterministic 400-node Gauss-Legendre
 # quadrature removes that randomness.
 #
-# It is DETERMINISTIC, not exact. The integrand is smooth over most of the
-# parameter space, but extreme all-success states concentrate posterior mass
-# near the boundary, where 400 nodes leave visible approximation error. A
-# paired diagnostic found no change in the calibrated threshold or in any
-# tested T1E cell, so the reported results do not rest on the residual error.
-# An earlier version of this note claimed agreement with a 4e5-draw Monte
-# Carlo reference "to ~1e-16"; that is not attainable, since such a reference
-# carries its own Monte Carlo error of order 1e-3. Agreement is within that
-# error, which is all the comparison can establish.
+# It is DETERMINISTIC, not exact. The sanity checks above verify the
+# Gauss-Legendre weights and one smooth Beta integral; they do not bound the
+# approximation error for every state the adaptive design can visit. Extreme
+# all-success or all-failure states can concentrate posterior mass near a
+# boundary and are the most demanding cases for a fixed-node rule.
 #
-# The diagnostic is reproducible: simulation/quadrature_diagnostic.R
-# (seed 20260727, 400 nodes, 4e5 reference draws, state grid covering the
-# n = 30/45/60/90 looks including all-success and all-failure boundaries).
+# All reported simulations use the specified 400-node rule. This supplement
+# does not claim machine-precision agreement with a Monte Carlo reference:
+# a 4e5-draw reference has Monte Carlo error of order 1e-3. Nor does it claim
+# invariance of gamma* or the T1E cells to the node count; establishing that
+# would require a paired rerun of calibration and each reported experiment
+# under both the 400-node rule and a higher-order reference.
 map_posterior_prob <- function(x_e, n_e, x_c, n_c, mix) {
   post <- mixture_posterior(mix, x_c, n_c)
   f_e <- dbeta(.QX, 0.5 + x_e, 0.5 + (n_e - x_e))
