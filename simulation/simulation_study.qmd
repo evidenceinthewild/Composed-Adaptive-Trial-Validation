@@ -356,15 +356,25 @@ gauss_legendre_01 <- function(n) {
 stopifnot(abs(sum(.QW) - 1) < 1e-12,
           abs(sum(.QW * dbeta(.QX, 3, 7)) - 1) < 1e-10)
 
-# ── P(p_e > p_c | data), computed EXACTLY ────────────────────────────────────
+# ── P(p_e > p_c | data), by deterministic quadrature ─────────────────────────
 # = int f_e(x) F_c(x) dx, where p_e ~ Beta(.5+x_e, .5+n_e-x_e) (Jeffreys, no
 # borrowing on the experimental arm) and p_c ~ posterior mixture.
 #
 # NOTE (2026-07 correction): this was previously a 2,000-draw Monte Carlo
 # estimate. Because the monitoring rule takes a maximum over interim looks,
-# Monte Carlo noise in the estimate inflates that maximum, and identical trial
-# data could yield different decisions. Deterministic quadrature agrees with a
-# 4e5-draw reference to ~1e-16 and removes the randomness entirely.
+# Monte Carlo noise in the estimate inflated that maximum, and identical trial
+# data could yield different decisions. Deterministic 400-node Gauss-Legendre
+# quadrature removes that randomness.
+#
+# It is DETERMINISTIC, not exact. The integrand is smooth over most of the
+# parameter space, but extreme all-success states concentrate posterior mass
+# near the boundary, where 400 nodes leave visible approximation error. A
+# paired diagnostic found no change in the calibrated threshold or in any
+# tested T1E cell, so the reported results do not rest on the residual error.
+# An earlier version of this note claimed agreement with a 4e5-draw Monte
+# Carlo reference "to ~1e-16"; that is not attainable, since such a reference
+# carries its own Monte Carlo error of order 1e-3. Agreement is within that
+# error, which is all the comparison can establish.
 map_posterior_prob <- function(x_e, n_e, x_c, n_c, mix) {
   post <- mixture_posterior(mix, x_c, n_c)
   f_e <- dbeta(.QX, 0.5 + x_e, 0.5 + (n_e - x_e))
@@ -1140,9 +1150,16 @@ cat(sprintf("  primary-run interaction for comparison: %+.4f\n", delta_f_int))
 
 ## 5.5 Baseline-Rate Departure × Time Trend
 
-The primary simulation activates both mechanisms simultaneously. Here we isolate them
-in a 2× 2 design (conflict × trend) to show each independently contributes,
-and that co-occurrence amplifies beyond either alone.
+The primary simulation activates both factors simultaneously. Here we *cross* them
+in a 2×2 design (baseline-rate departure × time trend) to see whether each raises
+Type I error on its own, and whether their joint effect exceeds the additive
+prediction.
+
+This is a factor-crossing experiment, **not** mechanism isolation. Both factors feed
+the monitoring rule, the SSR trigger and the RAR allocation rule simultaneously, and
+the design does not separate those channels. We also describe the departures as
+departures from the calibration anchor $p_0 = 0.25$, not as quantified prior–data
+conflict, which would have to be defined against the prior predictive distribution.
 
 ```{r mechanism-isolation}
 #| cache: true
