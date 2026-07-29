@@ -187,8 +187,14 @@ n_ssr    <- 45L    # SSR trigger at 50% of N_base
 # as a single object so the two cannot diverge.
 prior_mix <- NULL   # assigned in 5.2.1; simulations require it
 
-# ── Prior-data conflict & time trend ─────────────────────────────────────────
-# Conflict scenarios are defined relative to the DESIGN NULL p0 = 0.25 -- the
+# ── Departures from the calibration anchor & time trend ──────────────────────
+# NAMING NOTE: the variables below are still called `p0_conflict` for historical
+# reasons. They are NOT quantified prior-data conflict, which would have to be
+# defined against the prior predictive distribution. They are departures of the
+# common baseline rate from the calibration anchor p0 = 0.25. The prose and all
+# reported labels use the accurate term; only the identifiers are legacy.
+#
+# Departure scenarios are defined relative to the DESIGN NULL p0 = 0.25 -- the
 # historical control rate the efficacy threshold is calibrated at -- NOT
 # relative to the mean of the robustified MAP mixture.
 #
@@ -375,6 +381,10 @@ stopifnot(abs(sum(.QW) - 1) < 1e-12,
 # Carlo reference "to ~1e-16"; that is not attainable, since such a reference
 # carries its own Monte Carlo error of order 1e-3. Agreement is within that
 # error, which is all the comparison can establish.
+#
+# The diagnostic is reproducible: simulation/quadrature_diagnostic.R
+# (seed 20260727, 400 nodes, 4e5 reference draws, state grid covering the
+# n = 30/45/60/90 looks including all-success and all-failure boundaries).
 map_posterior_prob <- function(x_e, n_e, x_c, n_c, mix) {
   post <- mixture_posterior(mix, x_c, n_c)
   f_e <- dbeta(.QX, 0.5 + x_e, 0.5 + (n_e - x_e))
@@ -782,7 +792,7 @@ set_vague_weight <- function(mix, w_vague) {
 
 ### Threshold calibration
 
-$\gamma^*$ is calibrated under $H_0$ with no conflict and no trend.
+$\gamma^*$ is calibrated under $H_0$ at the anchor $p_0 = 0.25$ with no trend.
 
 ```{r calibration}
 #| cache: true
@@ -856,9 +866,9 @@ cat(sprintf("Inflation:     +%.4f  (+%.1f%%)\n", inflation_abs, inflation_pct))
 ```{r mild-conflict-sim}
 #| cache: true
 
-# MILD CONFLICT: p_e = p_c = 0.27, i.e. +2 pp above the DESIGN NULL p0 = 0.25
+# MILD DEPARTURE: p_e = p_c = 0.27, i.e. +2 pp above the DESIGN NULL p0 = 0.25
 # (the rate at which gamma* was calibrated). Not defined relative to the
-# robustified mixture mean, which is 0.3132 -- above both conflict scenarios.
+# robustified mixture mean, which is 0.3132 -- above both departure scenarios.
 # All other parameters identical to primary simulation
 set.seed(2028L)
 pp_mild <- replicate(
@@ -875,13 +885,13 @@ t1e_mild      <- t1e_at(pp_mild, gamma_star)
 inflation_mild <- t1e_mild - alpha
 inflation_pct_mild <- inflation_mild / alpha * 100
 
-cat(sprintf("MILD CONFLICT T1E:  %.4f  (nominal %.3f)\n", t1e_mild, alpha))
+cat(sprintf("MILD DEPARTURE T1E:  %.4f  (nominal %.3f)\n", t1e_mild, alpha))
 cat(sprintf("Inflation:          +%.4f  (+%.1f%%)\n", inflation_mild, inflation_pct_mild))
 cat(sprintf("vs. strong departure: %.4f  (strong = %.4f)\n", t1e_mild, t1e_primary))
 
 # Comparison table
 tribble(
-  ~Scenario,                              ~`p_conflict`, ~`T1E`,       ~`vs. nominal`,
+  ~Scenario,                              ~`p (both arms)`, ~`T1E`,    ~`vs. nominal`,
   "At anchor (calibration)",              "0.25",        t1e_at_star,   "—",
   "Mild departure (p=0.27)",    "0.27",        t1e_mild,
     sprintf("%+.1f%%", inflation_pct_mild),
@@ -905,9 +915,9 @@ Version B varies *when* SSR fires while holding the monitoring schedule fixed.
 
 | Look | Primary (shared) | Version B control |
 |------|-----------------|-------------------|
-| n=30 | monitoring only | **monitoring + SSR** |
-| n=45 | **monitoring + SSR** | monitoring only |
-| n=60 | monitoring only | monitoring only |
+| n=30 | monitor | **monitor + SSR** |
+| n=45 | **monitor + SSR** | monitor |
+| n=60 | monitor | monitor |
 | final | monitoring | monitoring |
 
 The scheduled monitoring looks are the same in both designs; only the interim
@@ -946,7 +956,7 @@ cat(sprintf("Attenuation:   %.1f%% of inflation removed by moving SSR to n=30\n"
             pct_recovered))
 ```
 
-```{r results-plot, fig.cap="Type I error: calibration target, primary (SSR at n=45), and Version B (SSR at n=30). Moving SSR earlier recovers only 6.5% of the excess over nominal, so SSR timing is a minor driver; the dominant contribution comes from the monitoring rule itself. This is an SSR-timing sensitivity analysis, not a clean negative control: moving SSR also changes the realised final-N distribution."}
+```{r results-plot, fig.cap="Type I error: calibration target, primary (SSR at n=45), and Version B (SSR at n=30). Moving SSR earlier changes the result little within the evaluated range, recovering about 6.5% of the excess over nominal. This is an SSR-timing sensitivity analysis, not a clean negative control: moving SSR also changes the realised final-N distribution. It does not apportion the excess among components, and no such attribution is made here."}
 tibble(
   Scenario = factor(
     c("Calibration\n(at anchor,\nno trend)",
@@ -986,13 +996,13 @@ tribble(
 ) |>
   mutate(T1E = sprintf("%.4f", T1E)) |>
   kable(caption = paste("Type I error summary. Version B tests SSR timing as a causal variable;",
-                        "negligible attenuation indicates SSR timing is not the primary driver."),
+                        "changing SSR timing alters the result little within the evaluated range."),
         align = c("l","r","r","l"))
 ```
 
 ---
 
-## 5.4 Factorial Decomposition
+## 5.4 Fixed-Threshold Factorial Ablation
 
 Running four designs (SSR × RAR) shows what happens when each adaptive component
 is switched off.
@@ -1058,7 +1068,7 @@ delta_f_int  <- t1e_f_both - t1e_f_ssr - t1e_f_rar + t1e_f_base
 # calibrated with SSR+RAR active, so it is NOT at nominal even at the anchor
 # (~0.05). It is an ablation, not an attributable share.
 cat("Cell values (Type I error):\n")
-cat(sprintf("  monitoring only        = %.4f  (MCSE %.4f)\n",
+cat(sprintf("  SSR + RAR disabled     = %.4f  (MCSE %.4f)\n",
             t1e_f_base, mcse(t1e_f_base, N_sim_sens)))
 cat(sprintf("  + SSR only             = %.4f  (MCSE %.4f)\n",
             t1e_f_ssr,  mcse(t1e_f_ssr,  N_sim_sens)))
@@ -1281,7 +1291,7 @@ separately calibrated monitoring-only design.
 
 Three caveats govern how the sweep should be read.
 
-**The crossing point is not sharply identified.** The composition effect is
+**The crossing point is not sharply identified.** The fixed-$\gamma^*$ difference is
 clearly negative at low evaluated rates and clearly positive at high ones, but
 the individual effects at $p = 0.25$ ($-0.0070$) and $p = 0.27$ ($+0.0078$)
 are each within their Monte Carlo error. Locating the crossing would require
@@ -1317,20 +1327,20 @@ sweep_rows <- lapply(p_null_grid, function(pn) {
                               delta = delta_trend,
                               use_ssr = TRUE,  use_rar = TRUE)), gamma_star)
   tibble(p = pn, `SSR + RAR disabled` = mon, `All mechanisms` = all,
-         `Composition effect` = all - mon)
+         `Fixed-gamma* difference` = all - mon)
 })
 composite_null <- bind_rows(sweep_rows)
 
 composite_null |>
   mutate(across(c(`SSR + RAR disabled`, `All mechanisms`),
                 ~ sprintf("%.4f", .x)),
-         `Composition effect` = sprintf("%+.4f", `Composition effect`)) |>
+         `Fixed-gamma* difference` = sprintf("%+.4f", `Fixed-gamma* difference`)) |>
   kable(caption = paste("Type I error across the composite null",
                         "(p_e = p_c = p, trend active). Both columns hold the",
                         "full-design threshold gamma* fixed; 'SSR + RAR",
                         "disabled' is an ablation, not a separately calibrated",
                         "design. Neither attains nominal across the range, and",
-                        "the sign of the composition effect depends on where in",
+                        "the sign of the fixed-threshold difference depends on where in",
                         "the null the design is evaluated."),
         align = c("r","r","r","r"))
 ```
@@ -1572,8 +1582,8 @@ kable(int_tbl,
 | MAP prior MCMC | 42 (via `set.seed()` before `gMAP()`) |
 | RAR validation | 42 |
 | Threshold calibration | 1 |
-| Primary: strong conflict (p=0.30) | 2026 |
-| Primary: mild conflict (p=0.27) | 2028 |
+| Primary: strong departure (p=0.30) | 2026 |
+| Primary: mild departure (p=0.27) | 2028 |
 | Version B control (n<sub>SSR</sub> = 30) | 2027 |
 | Factorial decomposition | 3000 |
 | Departure × trend (2x2) | 4000 |

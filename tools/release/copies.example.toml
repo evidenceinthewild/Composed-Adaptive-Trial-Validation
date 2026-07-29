@@ -120,7 +120,7 @@ release = [
   "Simulation Study/references.bib",
   "Simulation Study/simulation_study.html",
 ]
-skip_dirs = [".git", "_archive", "rerun", "simulation_study_cache",
+skip_dirs = [".git", "_archive", "simulation_study_cache",
              "simulation_study_public_cache"]
 # A hit is suppressed when any of these appears within allow_window characters
 # of it -- these are the places where a retracted phrase is deliberately quoted
@@ -187,12 +187,19 @@ pattern = 'invisible (to component-level|without pipeline)'
 label = "retracted invisibility claim"
 
 [[retracted]]
-pattern = 'accounts for 65|65\s*(?:%|percent)\s*of (the )?excess|generate[sd] most of the excess|excess is generated predominantly|predominantly by the monitoring|carries (about )?\d+\s*(?:%|percent)|(most|bulk) of the (excess|inflation)|(accounts? for|attributable to|attributed to|contributes|driven by)[^.]{0,40}\d+\s*(?:%|percent)\s*of the (excess|inflation)'
+pattern = 'accounts for 65|65\s*(?:%|percent)\s*of (the )?excess|generate[sd] most of the excess|excess is generated predominantly|predominantly by the monitoring|carries (about )?\d+\s*(?:%|percent)|(most|bulk) of the (excess|inflation)|dominant (contribution|driver|source|mechanism)|(minor|primary|main|chief|dominant) driver|contribution comes from the monitoring|(accounts? for|attributable to|attributed to|contributes|driven by)[^.]{0,40}\d+\s*(?:%|percent)\s*of the (excess|inflation)'
 label = "retracted attribution share"
 
 [[retracted]]
 pattern = 'prior-?data conflict is (the )?dominant'
 label = "retracted mechanism claim"
+
+# The departures are from the CALIBRATION ANCHOR, not quantified prior-data
+# conflict. These label forms were renamed; definitional uses ("not quantified
+# prior-data conflict", "defined against the prior predictive") are allow-listed.
+[[retracted]]
+pattern = '(mild|strong|moderate)\s+conflict|conflict scenarios?|MILD CONFLICT|STRONG CONFLICT'
+label = "conflict label for anchor departures"
 
 [[retracted]]
 pattern = 'RAR drift'
