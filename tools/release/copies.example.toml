@@ -126,6 +126,13 @@ skip_dirs = [".git", "_archive", "rerun", "simulation_study_cache",
 # of it -- these are the places where a retracted phrase is deliberately quoted
 # in order to disclaim it.
 allow_window = 320
+# Passages that exist IN ORDER to quote withdrawn claims. Given as flat
+# start/end marker pairs; everything between a start and its next end is
+# exempt. Preferred over a wider allow_window, which would weaken suppression
+# everywhere else.
+allow_regions = [
+  "INTERNAL NOTE - MANUSCRIPT REVISION SUMMARY", "INTERNAL NOTE - MATTHEWS",
+]
 allow = [
   "not a clean negative control", "NOT causal isolation",
   "rather than mechanism isolation", "NOTE (2026-07 correction)",

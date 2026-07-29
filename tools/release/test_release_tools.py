@@ -201,6 +201,28 @@ class TestManifest(unittest.TestCase):
             self.assertEqual(code, 0, out)
             self.assertNotIn("BLOCKER", out)
 
+    def test_allow_region_scopes_a_whole_passage(self):
+        """A revision-summary table quotes withdrawn claims on purpose."""
+        with Fixture() as f:
+            f.write("copies.toml", MANIFEST.replace(
+                'allow = ["deliberately quoted"]',
+                'allow = ["deliberately quoted"]\n'
+                'allow_regions = ["REVISION SUMMARY", "END SUMMARY"]'))
+            filler = "x " * 400          # far beyond any proximity window
+            f.write("main.tex", tex(CANON_PREFIX, "references_main", "env",
+                                    conclusion="REVISION SUMMARY " + filler +
+                                    "a withdrawn claim " + filler + "END SUMMARY"))
+            code, out = run(check.main, "--manifest", f.manifest, "--only", "sweep")
+            self.assertEqual(code, 0, "inside the region must be exempt: " + out)
+
+            # the same phrase OUTSIDE the region must still fail
+            f.write("main.tex", tex(CANON_PREFIX, "references_main", "env",
+                                    conclusion="REVISION SUMMARY END SUMMARY "
+                                    + filler + "a withdrawn claim"))
+            code, out = run(check.main, "--manifest", f.manifest, "--only", "sweep")
+            self.assertEqual(code, 1, "outside the region must still be caught")
+            self.assertIn("BLOCKER", out)
+
     def test_missing_manifest_is_an_error(self):
         with self.assertRaises(mf.ManifestError):
             mf.load(os.path.join(HERE, "does-not-exist.toml"))
@@ -364,6 +386,24 @@ class TestConsistency(unittest.TestCase):
             self.assertEqual(code, 1, "unreadable container must fail the run")
             self.assertIn("UNREADABLE", out)
             self.assertIn("broken.pptx", out)
+
+    def test_docx_extraction_survives_tables(self):
+        """<w:t[^>]*> also matches <w:tab/> and <w:tc>, corrupting table docs."""
+        with Fixture() as f:
+            import zipfile as zf
+            body = ("<w:document><w:body>"
+                    "<w:p><w:r><w:t>before</w:t></w:r></w:p>"
+                    "<w:tbl><w:tr><w:tc><w:tcPr><w:tcW w:w=\"0\"/></w:tcPr>"
+                    "<w:p><w:r><w:t>a withdrawn claim</w:t></w:r></w:p></w:tc>"
+                    "<w:tc><w:p><w:r><w:tab/><w:t>after</w:t></w:r></w:p></w:tc>"
+                    "</w:tr></w:tbl></w:body></w:document>")
+            p = os.path.join(f.dir, "t.docx")
+            with zf.ZipFile(p, "w") as z:
+                z.writestr("word/document.xml", body)
+            text = check._docx_text(p)[0][1]
+            self.assertNotIn("<w:", text, "markup leaked into extracted text")
+            self.assertIn("a withdrawn claim", text)
+            self.assertIn("after", text)
 
     def test_malformed_docx_is_fatal(self):
         with Fixture() as f:

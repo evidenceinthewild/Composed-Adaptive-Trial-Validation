@@ -80,10 +80,21 @@ def _pptx_text(path):
     return out
 
 
+# <w:t[^>]*> also matches <w:tab/>, <w:tc>, <w:tcPr> and every other element
+# whose name starts with "w:t". The non-greedy body then runs on to the next
+# real </w:t>, swallowing markup and gluing unrelated cells together -- so any
+# document containing a TABLE was extracted as garbage, both hiding real hits
+# and manufacturing false ones. Match the w:t element and nothing else.
+_WT = re.compile(r"<w:t(?:\s[^>]*)?>(.*?)</w:t>", re.S)
+
+
 def _docx_text(path):
     with zipfile.ZipFile(path) as z:
         xml = z.read("word/document.xml").decode("utf-8", "ignore")
-    return [("", "".join(re.findall(r"<w:t[^>]*>(.*?)</w:t>", xml, re.S)))]
+    # separate paragraphs/cells so adjacent text does not concatenate into
+    # tokens that exist in neither
+    xml = xml.replace("</w:p>", "</w:p>\n")
+    return [("", " ".join(_WT.findall(xml)))]
 
 
 def _plain_text(path):
@@ -113,6 +124,11 @@ def sweep(m):
     skip_dirs = set(scope.get("skip_dirs", []))
     allow = scope.get("allow", [])
     window = int(scope.get("allow_window", 320))
+    # Some material exists in order to quote withdrawn claims -- a revision
+    # summary, a "claims to avoid" list. A proximity window cannot span a whole
+    # table, and widening it globally would weaken every other suppression, so
+    # such passages are scoped by explicit start/end markers instead.
+    regions = scope.get("allow_regions", [])
     pats = [(p["pattern"], p["label"]) for p in m.array("retracted")]
 
     items, unreadable = [], []
@@ -142,8 +158,18 @@ def sweep(m):
     hits, other = [], []
     for name, text in items:
         flat = re.sub(r"\s+", " ", text)
+        spans = []
+        for i in range(0, len(regions), 2):
+            a, b = regions[i], regions[i + 1]
+            start = flat.find(a)
+            while start != -1:
+                end = flat.find(b, start + len(a))
+                spans.append((start, end if end != -1 else len(flat)))
+                start = flat.find(a, start + len(a))
         for pat, label in pats:
             for mt in re.finditer(pat, flat, re.I):
+                if any(lo <= mt.start() < hi for lo, hi in spans):
+                    continue
                 ctx = flat[max(0, mt.start() - window):mt.start() + window]
                 if any(a in ctx for a in allow):
                     continue
