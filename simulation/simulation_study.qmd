@@ -1273,7 +1273,7 @@ mech_res |>
            curvature = -0.20, angle = 90, ncp = 12,
            arrow = arrow(length = unit(0.18, "cm"), type = "closed"),
            color = ZET$green, linewidth = 0.6) +
-  annotate("text", x = 2.85, y = t1e_both_mech + 0.026,
+  annotate("text", x = 2.85, y = t1e_both_mech + 0.020,
            label = sprintf("Interaction = %+.4f", interaction_term),
            size = 4.1, fontface = "bold", color = ZET$green, hjust = 0.5) +
   # Short form for the nominal-alpha line: the caption spells it out in full,
@@ -1283,37 +1283,28 @@ mech_res |>
            fontface = "bold", color = ZET$red) +
   geom_text(aes(label = sprintf("%.4f", T1E)),
             vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
+  # No key. The fill maps to the same four categories the x axis already names,
+  # in the same order, so it encodes nothing position does not -- the legend
+  # entries were just abbreviated tick labels. The fills stay: they separate the
+  # reference condition from the composed one at a glance. Contrast Figure 2,
+  # where two series share one pair of axes and colour is the only thing telling
+  # them apart; that legend is load-bearing and stays.
   scale_fill_manual(values = c(Neither  = ZET$neutralF,
                                 Departure = "#2563EB",
                                 Trend    = ZET$teal,
-                                Both     = ZET$green)) +
-  # 1.30 is close to the floor. Below about 1.29 the legend, seated under the
-  # top gridline, drops onto the additive-prediction label; below 1.26 the 0.20
-  # gridline stops being drawn at all and there is nothing left to seat it under.
-  scale_y_continuous(limits = c(0, max(t1e_mech) * 1.30),
+                                Both     = ZET$green),
+                    guide = "none") +
+  # Dropping the key freed the upper-left, which had been the binding constraint
+  # on this limit: the legend sat under the top gridline and hit the
+  # additive-prediction label below about 1.29. The floor is now the interaction
+  # label, which needs roughly 1.19; 1.20 leaves it about a line of headroom.
+  scale_y_continuous(limits = c(0, max(t1e_mech) * 1.20),
                      labels = percent_format(accuracy = 0.1)) +
   labs(x = NULL, y = "Type I error", fill = NULL) +
   theme_zetyra() +
   theme(axis.title = element_text(size = 15, face = "bold", color = ZET$ink,
                                   margin = margin(t = 4, r = 4)),
-        axis.text  = element_text(size = 13, color = ZET$slate),
-        legend.position             = "inside",
-        # Inside positions are panel-relative, so both coordinates are derived
-        # from the scales rather than eyeballed.
-        #   x: the discrete scale's default additive expansion of 0.6 puts the
-        #      panel at [0.4, 4.6] and the 0.52-wide first bar at [0.74, 1.26].
-        #      0.040 is halfway between the panel edge and the bar edge --
-        #      flush with the bar read as slightly too far in.
-        #   y: the top gridline is at 0.20 of a 0.2070 panel = 0.966, so 0.960
-        #      seats the legend box just beneath it. The 2pt top legend.margin
-        #      supplies the visual gap; tighten that, not this, if it crowds.
-        #      Re-derive this if the 1.30 y-limit multiplier changes.
-        legend.position.inside      = c(0.040, 0.960),
-        legend.justification.inside = c(0, 1),
-        legend.direction            = "vertical",
-        legend.text  = element_text(size = 11, color = ZET$slate),
-        legend.background = element_rect(fill = "white", color = NA),
-        legend.margin     = margin(2, 6, 2, 2))
+        axis.text  = element_text(size = 13, color = ZET$slate))
 ```
 
 ```{r mechanism-table}
