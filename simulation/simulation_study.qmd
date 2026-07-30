@@ -1295,7 +1295,11 @@ mech_res |>
                                   margin = margin(t = 4, r = 4)),
         axis.text  = element_text(size = 13, color = ZET$slate),
         legend.position             = "inside",
-        legend.position.inside      = c(0.005, 0.995),
+        # Left edge flush with the first bar rather than with the panel edge.
+        # Inside positions are panel-relative: the discrete scale's default
+        # additive expansion of 0.6 puts the panel at [0.4, 4.6] and the 0.52-wide
+        # first bar at [0.74, 1.26], so (0.74 - 0.4) / 4.2 = 0.081.
+        legend.position.inside      = c(0.081, 0.995),
         legend.justification.inside = c(0, 1),
         legend.direction            = "vertical",
         legend.text  = element_text(size = 11, color = ZET$slate),
