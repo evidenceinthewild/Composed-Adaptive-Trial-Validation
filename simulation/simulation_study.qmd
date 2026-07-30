@@ -1287,7 +1287,10 @@ mech_res |>
                                 Departure = "#2563EB",
                                 Trend    = ZET$teal,
                                 Both     = ZET$green)) +
-  scale_y_continuous(limits = c(0, max(t1e_mech) * 1.35),
+  # 1.30 is close to the floor. Below about 1.29 the legend, seated under the
+  # top gridline, drops onto the additive-prediction label; below 1.26 the 0.20
+  # gridline stops being drawn at all and there is nothing left to seat it under.
+  scale_y_continuous(limits = c(0, max(t1e_mech) * 1.30),
                      labels = percent_format(accuracy = 0.1)) +
   labs(x = NULL, y = "Type I error", fill = NULL) +
   theme_zetyra() +
@@ -1301,10 +1304,11 @@ mech_res |>
         #      panel at [0.4, 4.6] and the 0.52-wide first bar at [0.74, 1.26].
         #      0.040 is halfway between the panel edge and the bar edge --
         #      flush with the bar read as slightly too far in.
-        #   y: the top gridline is at 0.20 of a 0.2149 panel = 0.931, so 0.925
+        #   y: the top gridline is at 0.20 of a 0.2070 panel = 0.966, so 0.960
         #      seats the legend box just beneath it. The 2pt top legend.margin
         #      supplies the visual gap; tighten that, not this, if it crowds.
-        legend.position.inside      = c(0.040, 0.925),
+        #      Re-derive this if the 1.30 y-limit multiplier changes.
+        legend.position.inside      = c(0.040, 0.960),
         legend.justification.inside = c(0, 1),
         legend.direction            = "vertical",
         legend.text  = element_text(size = 11, color = ZET$slate),
