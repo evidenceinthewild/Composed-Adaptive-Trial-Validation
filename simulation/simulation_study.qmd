@@ -1269,9 +1269,13 @@ mech_res |>
   annotate("text", x = 0.55, y = 0.059,
            label = sprintf("Interaction = %+.4f", interaction_term),
            size = 4.1, fontface = "bold", color = ZET$green, hjust = 0) +
-  annotate("curve", x = 1.05, y = 0.080,
+  # Shallow on purpose. The only obstacle between the label and the target is
+  # the "Departure only" bar and its value label; a chord from (1.05, 0.082)
+  # already clears those, so the curvature is cosmetic. A deeper arc rises
+  # above the dotted line and crowds the 0.1592 label on the way down.
+  annotate("curve", x = 1.05, y = 0.082,
            xend = 3.68, yend = (additive_pred + t1e_both_mech) / 2,
-           curvature = -0.60, angle = 90, ncp = 8,
+           curvature = -0.15, angle = 90, ncp = 12,
            arrow = arrow(length = unit(0.18, "cm"), type = "closed"),
            color = ZET$green, linewidth = 0.6) +
   # Short form for the nominal-alpha line: the caption spells it out in full,
