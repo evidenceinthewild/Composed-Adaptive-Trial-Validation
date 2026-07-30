@@ -1262,22 +1262,20 @@ mech_res |>
            y = (additive_pred + (floor(additive_pred / 0.05) + 1) * 0.05) / 2,
            label = sprintf("Additive prediction: %.4f", additive_pred),
            size = 4.1, fontface = "bold", color = ZET$ink, hjust = 0) +
-  # Interaction label sits just above the 5% gridline. The curve points at the
-  # slice of the "Both" bar lying above the dotted additive line -- that slice
-  # IS the interaction, so the arrow lands on the quantity it names rather than
-  # on the nominal-alpha line, which measures something else.
-  annotate("text", x = 0.55, y = 0.059,
-           label = sprintf("Interaction = %+.4f", interaction_term),
-           size = 4.1, fontface = "bold", color = ZET$green, hjust = 0) +
-  # Shallow on purpose. The only obstacle between the label and the target is
-  # the "Departure only" bar and its value label; a chord from (1.05, 0.082)
-  # already clears those, so the curvature is cosmetic. A deeper arc rises
-  # above the dotted line and crowds the 0.1592 label on the way down.
-  annotate("curve", x = 1.05, y = 0.082,
-           xend = 3.68, yend = (additive_pred + t1e_both_mech) / 2,
-           curvature = -0.15, angle = 90, ncp = 12,
+  # The arc runs from the additive-prediction label to the observed value on the
+  # "Both" bar. Its two endpoints are the two numbers whose difference IS the
+  # interaction, so the span carries the meaning and the label above it only has
+  # to name the quantity. Both endpoints sit above every bar, so the path stays
+  # clear however the bar heights move; offsets are taken off the data rather
+  # than hardcoded for the same reason.
+  annotate("curve", x = 1.95, y = additive_pred + 0.012,
+           xend = 3.82, yend = t1e_both_mech + 0.006,
+           curvature = -0.20, angle = 90, ncp = 12,
            arrow = arrow(length = unit(0.18, "cm"), type = "closed"),
            color = ZET$green, linewidth = 0.6) +
+  annotate("text", x = 2.85, y = t1e_both_mech + 0.026,
+           label = sprintf("Interaction = %+.4f", interaction_term),
+           size = 4.1, fontface = "bold", color = ZET$green, hjust = 0.5) +
   # Short form for the nominal-alpha line: the caption spells it out in full,
   # and only the gap between the first two bars is wide enough for a label.
   annotate("text", x = 1.5, y = alpha, label = "α = 0.025",
