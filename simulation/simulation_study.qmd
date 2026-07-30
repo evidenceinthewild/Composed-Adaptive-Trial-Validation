@@ -358,9 +358,24 @@ gauss_legendre_01 <- function(n) {
 .QX <- .gl$x
 .QW <- .gl$w
 
-# Sanity: integrate a known Beta density and CDF product to machine precision.
-stopifnot(abs(sum(.QW) - 1) < 1e-12,
-          abs(sum(.QW * dbeta(.QX, 3, 7)) - 1) < 1e-10)
+# Sanity checks on the rule actually used below.
+#
+# Normalisation alone is too weak to certify a quadrature rule: a set of
+# positive weights summing to 1 passes it whether or not the nodes are right.
+# A standalone diagnostic written for this project built the Jacobi matrix with
+# the off-diagonal terms on the MAIN diagonal, still integrated the constant 1
+# to 1.0, still produced nodes inside (0, 1) -- and integrated x to 0.7887
+# instead of 0.5. Moment exactness to degree 2n-1 is the property that actually
+# distinguishes a Gauss-Legendre rule, so it is checked here, at render time,
+# on the rule the simulation uses.
+.g8 <- gauss_legendre_01(8L)
+stopifnot(
+  abs(sum(.QW) - 1)                     < 1e-12,   # int 1    = 1
+  abs(sum(.QW * .QX) - 0.5)             < 1e-12,   # int x    = 1/2
+  abs(sum(.QW * .QX^2) - 1 / 3)         < 1e-12,   # int x^2  = 1/3
+  abs(sum(.g8$w * .g8$x^15) - 1 / 16)   < 1e-10,   # exact to degree 2n-1
+  abs(sum(.QW * dbeta(.QX, 3, 7)) - 1)  < 1e-10)   # a smooth Beta density
+rm(.g8)
 
 # ── P(p_e > p_c | data), by deterministic quadrature ─────────────────────────
 # = int f_e(x) F_c(x) dx, where p_e ~ Beta(.5+x_e, .5+n_e-x_e) (Jeffreys, no
@@ -1230,13 +1245,40 @@ mech_res |>
              color = ZET$red, linewidth = 0.8) +
   geom_hline(yintercept = additive_pred, linetype = "dotted",
              color = ZET$slate, linewidth = 1.0) +
-  # Centre the label vertically between the dotted additive line and the next
-  # gridline above it, so it crowds neither. floor()+1 rather than ceiling()
-  # keeps this correct if additive_pred ever lands exactly on a gridline.
-  annotate("text", x = 3.5,
+  # ── in-panel annotation ─────────────────────────────────────────────────────
+  # This figure carries no title or subtitle: the manuscript prints a caption
+  # beneath every figure, so a title only repeats it. What the subtitle used to
+  # carry is annotated inside the panel instead.
+  #
+  # The three positions below were checked against the bar tops, their value
+  # labels and the legend box at the rendered 9 x 5.5 in size; each has under
+  # one line height of slack in at least one direction. Re-check before nudging.
+  #
+  # Additive-prediction label: left-hand end, vertically centred between the
+  # dotted additive line and the next gridline above it, so it crowds neither.
+  # floor()+1 rather than ceiling() keeps this correct if additive_pred ever
+  # lands exactly on a gridline.
+  annotate("text", x = 0.55,
            y = (additive_pred + (floor(additive_pred / 0.05) + 1) * 0.05) / 2,
            label = sprintf("Additive prediction: %.4f", additive_pred),
-           size = 4.1, fontface = "bold", color = ZET$ink, hjust = 1) +
+           size = 4.1, fontface = "bold", color = ZET$ink, hjust = 0) +
+  # Interaction label sits just above the 5% gridline. The curve points at the
+  # slice of the "Both" bar lying above the dotted additive line -- that slice
+  # IS the interaction, so the arrow lands on the quantity it names rather than
+  # on the nominal-alpha line, which measures something else.
+  annotate("text", x = 0.55, y = 0.059,
+           label = sprintf("Interaction = %+.4f", interaction_term),
+           size = 4.1, fontface = "bold", color = ZET$green, hjust = 0) +
+  annotate("curve", x = 1.05, y = 0.080,
+           xend = 3.68, yend = (additive_pred + t1e_both_mech) / 2,
+           curvature = -0.60, angle = 90, ncp = 8,
+           arrow = arrow(length = unit(0.18, "cm"), type = "closed"),
+           color = ZET$green, linewidth = 0.6) +
+  # Short form for the nominal-alpha line: the caption spells it out in full,
+  # and only the gap between the first two bars is wide enough for a label.
+  annotate("text", x = 1.5, y = alpha, label = "α = 0.025",
+           hjust = 0.5, vjust = -0.45, size = 3.5,
+           fontface = "bold", color = ZET$red) +
   geom_text(aes(label = sprintf("%.4f", T1E)),
             vjust = -0.5, size = 3.8, fontface = "bold", color = ZET$ink) +
   scale_fill_manual(values = c(Neither  = ZET$neutralF,
@@ -1245,12 +1287,18 @@ mech_res |>
                                 Both     = ZET$green)) +
   scale_y_continuous(limits = c(0, max(t1e_mech) * 1.35),
                      labels = percent_format(accuracy = 0.1)) +
-  labs(title    = "Baseline-Rate Departure × Time Trend",
-       subtitle = paste("Dotted = additive prediction. Interaction =",
-                         sprintf("%+.4f", interaction_term),
-                         "(amplification if above dotted line)"),
-       x = NULL, y = "Type I error", fill = NULL) +
-  theme_zetyra() + theme(legend.position = "bottom")
+  labs(x = NULL, y = "Type I error", fill = NULL) +
+  theme_zetyra() +
+  theme(axis.title = element_text(size = 15, face = "bold", color = ZET$ink,
+                                  margin = margin(t = 4, r = 4)),
+        axis.text  = element_text(size = 13, color = ZET$slate),
+        legend.position             = "inside",
+        legend.position.inside      = c(0.005, 0.995),
+        legend.justification.inside = c(0, 1),
+        legend.direction            = "vertical",
+        legend.text  = element_text(size = 11, color = ZET$slate),
+        legend.background = element_rect(fill = "white", color = NA),
+        legend.margin     = margin(2, 6, 2, 2))
 ```
 
 ```{r mechanism-table}
@@ -1351,16 +1399,32 @@ composite_null |>
   ggplot(aes(p, T1E, color = Design, shape = Design)) +
   geom_hline(yintercept = alpha, linetype = "dashed",
              color = ZET$red, linewidth = 0.8) +
+  # No title or subtitle: the manuscript captions every figure, so a title only
+  # repeats it. The nominal-alpha reference therefore moves into the panel,
+  # right-aligned at the high-p end where both series run far above the line --
+  # the same placement as the presentation version of this figure.
+  annotate("text", x = max(composite_null$p), y = alpha,
+           label = "nominal α = 0.025", hjust = 1, vjust = -0.45,
+           size = 4.3, fontface = "bold", color = ZET$red) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 2.8) +
   scale_color_manual(values = c(`SSR + RAR disabled` = ZET$neutralL,
                                 `All mechanisms`  = ZET$green)) +
   scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
   scale_x_continuous(labels = percent_format(accuracy = 1)) +
-  labs(title    = "Type I Error Across the Composite Null",
-       subtitle = bquote("Dashed red = nominal " * alpha * " = 0.025"),
-       x = bquote("Common baseline rate " * p), y = "Type I error") +
-  theme_zetyra() + theme(legend.position = "bottom")
+  labs(x = bquote("Common baseline rate " * p), y = "Type I error",
+       color = NULL, shape = NULL) +
+  theme_zetyra() +
+  theme(axis.title = element_text(size = 15, face = "bold", color = ZET$ink,
+                                  margin = margin(t = 4, r = 4)),
+        axis.text  = element_text(size = 13, color = ZET$slate),
+        legend.position             = "inside",
+        legend.position.inside      = c(0.01, 0.99),
+        legend.justification.inside = c(0, 1),
+        legend.direction            = "vertical",
+        legend.text  = element_text(size = 12, color = ZET$slate),
+        legend.background = element_rect(fill = "white", color = "#D8DCE2"),
+        legend.margin     = margin(4, 8, 4, 6))
 ```
 
 ---
