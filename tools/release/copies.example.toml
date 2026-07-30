@@ -133,11 +133,21 @@ allow_window = 320
 allow_regions = [
   "INTERNAL NOTE - MANUSCRIPT REVISION SUMMARY", "INTERNAL NOTE - MATTHEWS",
 ]
+# "is not quantified conflict" is there because PDF text extraction
+# concatenates a slide heading with the body beneath it. The Limitations slide
+# reads "Departure is not quantified conflict" / "Scenarios move off the 25%
+# anchor...", which joins into the literal string "conflict Scenarios" and
+# trips the anchor-departure pattern. The .pptx is clean -- those are separate
+# shapes -- so only the exported PDF is affected, and the sentence it flags is
+# the one making the correct disclaimer.
+#
+# Comments must sit OUTSIDE the array: the manifest's TOML subset parser reads
+# an array as one value and does not strip inline comment lines.
 allow = [
   "not a clean negative control", "NOT causal isolation",
   "rather than mechanism isolation", "NOTE (2026-07 correction)",
   "Do not say", "do not read", "Do NOT say", "Claims to avoid",
-  "not an attributable share",
+  "not an attributable share", "is not quantified conflict",
   "I would not state a share", "REMOVED", "version claim removed",
   "superseded", "retracted",
 ]

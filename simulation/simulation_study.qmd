@@ -1416,7 +1416,12 @@ composite_null |>
   geom_point(size = 2.8) +
   scale_color_manual(values = c(`SSR + RAR disabled` = ZET$neutralL,
                                 `All mechanisms`  = ZET$green)) +
-  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  # Explicit 5-point breaks, matching the presentation variant. ggplot's
+  # default choice here was 0 / 10 / 20%, which left the reader nothing to
+  # measure against between the 2.5% reference line and 10% -- exactly the
+  # region where the two series cross.
+  scale_y_continuous(breaks = seq(0, 0.25, by = 0.05),
+                     labels = percent_format(accuracy = 1)) +
   scale_x_continuous(labels = percent_format(accuracy = 1)) +
   labs(x = bquote("Common baseline rate " * p), y = "Type I error",
        color = NULL, shape = NULL) +
