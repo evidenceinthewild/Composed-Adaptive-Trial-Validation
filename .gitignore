@@ -8,6 +8,7 @@
 *.fdb_latexmk
 *.synctex.gz
 *.pdf
+!manuscript/JSM_2026_Manuscript.pdf
 
 # Quarto build artifacts
 _cache/
