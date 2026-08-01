@@ -52,7 +52,7 @@ def tex(prefix, bib, abstract_style, abstract=ABSTRACT, conclusion=CONCLUSION):
         "\\section{Introduction}\nIntro text.\n\n"
         "\\section{Results}\n"
         "\\includegraphics{%scomposite-null-plot-1.png}\n"
-        "\\includegraphics{%smechanism-isolation-1.png}\n"
+        "\\includegraphics{%sdeparture-trend-crossing-1.png}\n"
         "\\includegraphics{Figure1_Composed_Design.png}\n\n"
         "\\section{Conclusion}\n%s\n\n"
         "\\bibliography{%s}\n\\end{document}\n" % (prefix, prefix, conclusion, bib)
@@ -172,28 +172,26 @@ class TestManifest(unittest.TestCase):
     def test_parses_the_shipped_example_manifest(self):
         example = os.path.join(HERE, "copies.example.toml")
         d = mf.parse_toml(mf.read_text(example))
-        self.assertEqual(len(d["manuscript"]), 4)
-        self.assertEqual(d["build"]["expected_images"], 6)
-        self.assertTrue(any(r"\+208\s*%" in p["pattern"] for p in d["retracted"]),
+        self.assertEqual(len(d["manuscript"]), 1)
+        self.assertTrue(d["manuscript"][0]["canonical"])
+        self.assertEqual(d["build"]["expected_images"], 7)
+        self.assertTrue(any(r"7\.7\s*" in p["pattern"] for p in d["retracted"]),
                         "regex escapes must survive the literal-string parser")
 
-    def test_attribution_pattern_matches_both_percent_spellings(self):
-        """A %-only regex undercounts: the script spells it "65 percent"."""
+    def test_conflict_label_pattern_matches_obsolete_variants(self):
+        """Anchor departures must not be relabeled as quantified conflict."""
         d = mf.parse_toml(mf.read_text(os.path.join(HERE, "copies.example.toml")))
         pat = next(p["pattern"] for p in d["retracted"]
-                   if p["label"] == "retracted attribution share")
-        for s in ("monitoring accounts for 65% of the excess",
-                  "monitoring accounts for 65 percent of the excess",
-                  "monitoring carries about 70%",
-                  "monitoring carries about 70 percent",
-                  "driven by monitoring, 65 percent of the excess"):
+                   if p["label"] == "conflict label used for anchor departure")
+        for s in ("mild conflict", "strong conflict scenario",
+                  "moderate conflict"):
             self.assertRegex(s, pat, f"missed: {s}")
 
     def test_headline_pattern_catches_decimal_and_percentage_forms(self):
         """The same retracted number written two ways must not escape."""
         d = mf.parse_toml(mf.read_text(os.path.join(HERE, "copies.example.toml")))
         pat = next(p["pattern"] for p in d["retracted"]
-                   if p["label"] == "old headline T1E")
+                   if p["label"] == "obsolete headline T1E")
         for s in ("T1E of 0.0771 under mild conflict",
                   "inflated Type I error to 7.7%",
                   "inflated Type I error to 7.7 percent"):
@@ -365,8 +363,10 @@ class TestConsistency(unittest.TestCase):
             png = b"\x89PNG\r\n\x1a\n" + b"R" * 60000      # "rendered"
             slide = b"\x89PNG\r\n\x1a\n" + b"S" * 60000     # slide variant
             rogue = b"\x89PNG\r\n\x1a\n" + b"X" * 60000     # neither
-            open(os.path.join(f.dir, "figs/render/a.png"), "wb").write(png)
-            open(os.path.join(f.dir, "slide-figures/a-slide.png"), "wb").write(slide)
+            with open(os.path.join(f.dir, "figs/render/a.png"), "wb") as fh:
+                fh.write(png)
+            with open(os.path.join(f.dir, "slide-figures/a-slide.png"), "wb") as fh:
+                fh.write(slide)
 
             def deck(payload):
                 p = os.path.join(f.dir, "deck.pptx")

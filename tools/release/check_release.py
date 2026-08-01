@@ -16,8 +16,8 @@ history:
                          schematic once contradicted the corrected manuscript
                          in four places and passed every text sweep, because
                          text baked into a raster is invisible to a regex.
-  4. DECK CHARTS         Charts pasted into the deck match the current render.
-                         A stale one shipped with a retracted axis label.
+  4. DECK CHARTS         When a deck is declared, pasted charts match the
+                         current render.
   5. BUILD INTEGRITY     Each PDF embeds the expected number of images. A
                          LaTeX run that cannot find a figure still exits 0 and
                          still emits a PDF.
@@ -249,6 +249,9 @@ def schematic(m):
 # ── 4. deck charts ──────────────────────────────────────────────────────────
 def deck_images(m):
     rule("DECK CHART IMAGES (raster — not text-swept)")
+    if not m.has_table("deck"):
+        print("  skipped — no [deck] section in this manifest")
+        return 0
     d = m.table("deck")
     path, floor = m.abs(d["path"]), int(d.get("min_chart_bytes", 50000))
     src = m.abs(m.table("figures")["source"])
@@ -376,7 +379,7 @@ def copies(m):
 
     docs = {}
     for e in manuscripts:
-        t = open(m.abs(e["tex"]), encoding="utf-8").read()
+        t = mf.read_text(m.abs(e["tex"]))
         a, secs = extract_abstract(t, e["abstract"]), extract_sections(t, prefixes)
         if a is None or secs is None:
             print(f"  BROKEN  {e['name']}: could not extract "

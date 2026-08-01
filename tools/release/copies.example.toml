@@ -1,260 +1,79 @@
-# ═══════════════════════════════════════════════════════════════════════════
-# Workspace manifest for the release tools.
+# Public-repository release manifest.
 #
-#   python3 tools/release/check_release.py   --manifest <this file>
-#   python3 tools/release/port_manuscript.py --manifest <this file> [--apply]
-#
-# EVERY path below is RELATIVE to the workspace root, which is either passed as
-# --workspace or defaults to the directory containing this manifest. Nothing is
-# resolved relative to the scripts, and no absolute user-specific path is ever
-# stored here -- that is the point of the manifest.
-#
-# Copy this file to copies.toml, adjust the paths for your checkout, and keep
-# copies.toml out of version control if your layout is machine-specific.
-# ═══════════════════════════════════════════════════════════════════════════
+# Run from the repository root:
+#   python3 tools/release/check_release.py \
+#     --manifest tools/release/copies.example.toml --workspace .
 
 [build]
-# Number of images every manuscript PDF must embed. A LaTeX run that cannot
-# find a figure still exits 0 and still emits a PDF; this is what catches it.
-expected_images = 6
+# pdfimages counts the three alpha masks as images in addition to the four
+# visible manuscript figures.
+expected_images = 7
 
 [transformations]
-# How many times each port transformation MUST match. Zero matches and multiple
-# matches are both failures: either means the document changed shape and the
-# port can no longer be trusted to be mechanical.
-figure_prefix = 2      # composite-null-plot, mechanism-isolation
+# Retained for compatibility with port_manuscript.py. The public release has
+# one canonical manuscript, so no cross-copy transformation is performed.
+figure_prefix = 3
 schematic_path = 1
 bibliography = 1
 
 [figures]
-source = "Simulation Study/simulation_study_files/figure-html"
-consumers = [
-  "composed-adaptive-validation/manuscript/figures",
-  "arxiv-submission",
-  "proceedings",
-]
+# Render simulation/simulation_study.qmd before running the figure check.
+source = "simulation/simulation_study_files/figure-html"
+consumers = ["manuscript/figures"]
 
 [schematic]
-# Hand-built diagram, not produced by the render. The first consumer is the
-# reference copy. Hash equality is all that can be checked automatically; its
-# CONTENT must be re-read whenever the manuscript's claims change.
 filename = "Figure1_Composed_Design.png"
-consumers = [
-  ".",
-  "proceedings",
-  "arxiv-submission",
-  "composed-adaptive-validation/manuscript/figures",
-]
-
-[deck]
-path = "JSM 2026 Zetyra 20260803.pptx"
-min_chart_bytes = 50000    # below this an embedded PNG is a logo or icon
-# Presentation-only figures: same numbers as the render, restyled for projection
-# (no title, legend inside, larger type). Declared so they pass, while an
-# undeclared or stale chart still fails.
-extra_chart_dirs = ["slide-figures"]
-
-# ── manuscript copies ───────────────────────────────────────────────────────
-# Exactly one entry must set canonical = true; it is the source of the abstract
-# and body that the others receive.
+consumers = ["manuscript/figures"]
 
 [[manuscript]]
-name = "root"
-tex = "JSM_2026_Manuscript.tex"
-pdf = "JSM_2026_Manuscript.pdf"
-log = "JSM_2026_Manuscript.log"
-figure_prefix = "Simulation Study/simulation_study_files/figure-html/"
-bibliography = "references_manuscript"
-abstract = "env"
-canonical = true
-
-[[manuscript]]
-name = "repo"
-tex = "composed-adaptive-validation/manuscript/JSM_2026_Manuscript.tex"
-pdf = "composed-adaptive-validation/manuscript/JSM_2026_Manuscript.pdf"
-log = "composed-adaptive-validation/manuscript/JSM_2026_Manuscript.log"
+name = "public"
+tex = "manuscript/JSM_2026_Manuscript.tex"
+pdf = "manuscript/JSM_2026_Manuscript.pdf"
 figure_prefix = "figures/"
 bibliography = "references"
 abstract = "env"
-canonical = false
+canonical = true
 
-[[manuscript]]
-name = "arxiv"
-tex = "arxiv-submission/JSM_2026_Manuscript.tex"
-pdf = "arxiv-submission/JSM_2026_Manuscript.pdf"
-log = "arxiv-submission/JSM_2026_Manuscript.log"
-figure_prefix = ""
-bibliography = "references_manuscript"
-abstract = "env"
-canonical = false
-
-[[manuscript]]
-name = "proceedings"
-tex = "proceedings/JSM_2026_Proceedings.tex"
-pdf = "proceedings/JSM_2026_Proceedings.pdf"
-log = "proceedings/JSM_2026_Proceedings.log"
-figure_prefix = ""
-bibliography = "references"
-# The ASA template uses \section*{Abstract} rather than the abstract
-# environment. A port that assumed the environment once skipped this file
-# entirely and left it with a stale abstract AND a stale body.
-abstract = "section"
-canonical = false
-
-# ── sweep scope ─────────────────────────────────────────────────────────────
 [scope]
-# Files that constitute this release. Anything else is still swept, but is
-# reported separately so unrelated material cannot block the release.
-release = [
-  "JSM_2026_Manuscript.tex",
-  "JSM_2026_Manuscript.pdf",
-  "references_manuscript.bib",
-  "JSM 2026 Zetyra 20260803.pptx",
-  "JSM 2026 Zetyra 20260803.pdf",
-  "JSM 2026 Talk Script 20260803 - Accessible Rewrite.docx",
-  "proceedings/",
-  "arxiv-submission/",
-  "composed-adaptive-validation/",
-  "Simulation Study/simulation_study.qmd",
-  "Simulation Study/simulation_study_public.qmd",
-  "Simulation Study/references.bib",
-  "Simulation Study/simulation_study.html",
-]
-skip_dirs = [".git", "_archive", "simulation_study_cache",
-             "simulation_study_public_cache"]
-# A hit is suppressed when any of these appears within allow_window characters
-# of it -- these are the places where a retracted phrase is deliberately quoted
-# in order to disclaim it.
+release = ["README.md", "manuscript/", "simulation/"]
+skip_dirs = [".git", "_archive", "_cache", "simulation_study_files",
+             "__pycache__", "release"]
 allow_window = 320
-# Passages that exist IN ORDER to quote withdrawn claims. Given as flat
-# start/end marker pairs; everything between a start and its next end is
-# exempt. Preferred over a wider allow_window, which would weaken suppression
-# everywhere else.
-allow_regions = [
-  "INTERNAL NOTE - MANUSCRIPT REVISION SUMMARY", "INTERNAL NOTE - MATTHEWS",
-]
-# "is not quantified conflict" is there because PDF text extraction
-# concatenates a slide heading with the body beneath it. The Limitations slide
-# reads "Departure is not quantified conflict" / "Scenarios move off the 25%
-# anchor...", which joins into the literal string "conflict Scenarios" and
-# trips the anchor-departure pattern. The .pptx is clean -- those are separate
-# shapes -- so only the exported PDF is affected, and the sentence it flags is
-# the one making the correct disclaimer.
-#
-# Comments must sit OUTSIDE the array: the manifest's TOML subset parser reads
-# an array as one value and does not strip inline comment lines.
+allow_regions = []
 allow = [
-  "not a clean negative control", "NOT causal isolation",
-  "rather than mechanism isolation", "NOTE (2026-07 correction)",
-  "Do not say", "do not read", "Do NOT say", "Claims to avoid",
-  "not an attributable share", "is not quantified conflict",
-  "I would not state a share", "REMOVED", "version claim removed",
-  "superseded", "retracted",
+  "not a clean negative control", "not mechanism isolation",
+  "not an attributable share", "not quantified prior-data conflict",
+  "defined against the prior predictive", "stress-test summary",
 ]
-
-# ── retracted claims and numbers ────────────────────────────────────────────
-# Single-quoted TOML literal strings: no backslash escaping needed for regexes.
-# Each entry is a claim this project published and then withdrew.
 
 [[retracted]]
 pattern = '0\.0771|7\.7\s*(?:%|percent)'
-label = "old headline T1E"
-
-[[retracted]]
-pattern = '\+208\s*%|208%\s*(above|vs)|208 percent'
-label = "old +208% inflation"
-
-[[retracted]]
-pattern = '0\.0278'
-label = "old conflict x trend interaction"
+label = "obsolete headline T1E"
 
 [[retracted]]
 pattern = '0\.1274|0\.1266'
-label = "old primary / Version B values"
+label = "obsolete Rule B values"
 
 [[retracted]]
 pattern = '0\.1350|0\.1072'
-label = "old mechanism-isolation values"
+label = "obsolete departure-by-trend values"
 
 [[retracted]]
-pattern = '\b655\b|35 scripts'
-label = "old validation counts"
-
-[[retracted]]
-pattern = '[Nn]ine published'
-label = "old trial count"
-
-[[retracted]]
-pattern = 'Validate the pipeline'
-label = "retracted slogan"
-
-[[retracted]]
-pattern = 'insufficient for composed'
-label = "retracted thesis"
-
-[[retracted]]
-pattern = 'invisible (to component-level|without pipeline)'
-label = "retracted invisibility claim"
-
-[[retracted]]
-pattern = 'accounts for 65|65\s*(?:%|percent)\s*of (the )?excess|generate[sd] most of the excess|excess is generated predominantly|predominantly by the monitoring|carries (about )?\d+\s*(?:%|percent)|(most|bulk) of the (excess|inflation)|dominant (contribution|driver|source|mechanism)|(minor|primary|main|chief|dominant) driver|contribution comes from the monitoring|(accounts? for|attributable to|attributed to|contributes|driven by)[^.]{0,40}\d+\s*(?:%|percent)\s*of the (excess|inflation)'
-label = "retracted attribution share"
-
-[[retracted]]
-pattern = 'prior-?data conflict is (the )?dominant'
-label = "retracted mechanism claim"
-
-# The departures are from the CALIBRATION ANCHOR, not quantified prior-data
-# conflict. These label forms were renamed; definitional uses ("not quantified
-# prior-data conflict", "defined against the prior predictive") are allow-listed.
-[[retracted]]
-pattern = '(mild|strong|moderate)\s+conflict|conflict scenarios?|MILD CONFLICT|STRONG CONFLICT'
-label = "conflict label for anchor departures"
-
-[[retracted]]
-pattern = 'RAR drift'
-label = "false trend attribution"
-
-[[retracted]]
-pattern = 'zenodo\.18879839'
-label = "superseded whitepaper DOI"
+pattern = '(mild|strong|moderate)\s+conflict|conflict scenarios?'
+label = "conflict label used for anchor departure"
 
 [[retracted]]
 pattern = 'zhou_lee_yuan'
-label = "wrong boundary source (BOP2)"
-
-[[retracted]]
-pattern = 'CUPED/covariate'
-label = "false Leyrat description"
-
-[[retracted]]
-pattern = 'Reference trial:\s*NCT'
-label = "NCT as reference design"
-
-[[retracted]]
-pattern = '[25]\s*pp above (the )?prior mean'
-label = "false departure framing"
-
-[[retracted]]
-pattern = 'Common control/experimental rate'
-label = "old axis label"
+label = "incorrect monitoring-boundary source"
 
 [[retracted]]
 pattern = 'Seaman III, James'
-label = "wrong RBesT author"
+label = "incorrect RBesT author"
 
 [[retracted]]
-pattern = 'version 3\.9\.0'
-label = "nonexistent gsDesign version"
-
-[[retracted]]
-pattern = 'Validate H0'
-label = "close line not matching the script"
+pattern = 'Common control/experimental rate'
+label = "obsolete composite-null axis label"
 
 [[retracted]]
 pattern = 'monitoring-only cell|robustness failure in the monitoring'
-label = "retracted monitoring attribution"
-
-[[retracted]]
-pattern = 'net effect of composition|net composition effect'
-label = "unconditioned composition claim"
+label = "unsupported monitoring attribution"

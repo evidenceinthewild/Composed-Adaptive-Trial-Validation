@@ -178,6 +178,9 @@ class Manifest:
             raise ManifestError(f"manifest is missing the [{name}] table")
         return t
 
+    def has_table(self, name):
+        return isinstance(self.data.get(name), dict)
+
     def array(self, name):
         a = self.data.get(name)
         if not isinstance(a, list) or not a:
