@@ -34,6 +34,7 @@
 \newcommand{\Fj}{\mathcal{F}_j}
 
 % ─────────────────────────────────────────────────────────────────────────────
+\usepackage{placeins}  % \FloatBarrier, to keep Figure 2 inside Section 3.5
 \begin{document}
 
 \begin{center}
@@ -62,17 +63,26 @@ numerical benchmark check, but none of those checks evaluated T1E away from the
 calibration anchor.
 
 The full-design threshold was calibrated to $\alpha = 0.025$ at $p_0 = 0.25$
-with no time trend.  We then evaluated a one-dimensional null slice spanning
-common baseline rates $p = 0.20$--$0.36$, with a shared trend active in both
-arms.  SSR used the blinded pooled response rate only as a nuisance-parameter
-estimate while holding the planned treatment effect fixed.  With all mechanisms
-active, T1E rose from 0.0112 to 0.2272.  At the same
-fixed threshold, disabling SSR and RAR did not restore control; the ablation
-reached 0.1638 at $p = 0.36$.  The fixed-threshold difference between the full
+with no time trend.  We then held the threshold fixed and varied only the
+common baseline rate over $p = 0.20$--$0.45$, with no trend, so that every
+evaluated point is a constant-rate null and every rejection is a Type~I error.
+SSR used the blinded pooled response rate only as a nuisance-parameter estimate
+while holding the planned treatment effect fixed.
+
+At the calibration anchor the design performed as intended: estimated Type~I
+error 0.0236 (MCSE 0.0021) against a nominal 0.025.  Changing only the baseline
+rate raised it to 0.0810 at $p=0.30$, 0.1854 at $p=0.36$ and 0.2786 at
+$p=0.45$, roughly eleven times nominal, with the curve still climbing at the
+grid boundary.  No calendar trend and no misspecified analysis are required to
+produce this failure.  A separate trend-active grid, in which both arms drift
+together under a time-constant analysis, is reported as a stress analysis; its
+rejections are not Type~I errors and reach 0.2874.  At the same
+fixed threshold, disabling SSR and RAR did not restore Type~I error control on
+the constant-rate grid either; that ablation reached 0.2020 at $p = 0.45$.  The fixed-threshold difference between the full
 design and the ablation reversed sign across the range.  The SSR~$\times$~RAR
-interaction was $+0.0106$ (95\% simulation interval $[-0.0074,+0.0286]$), and
-a fresh-seed estimate was $+0.0003$ ($[-0.0227,+0.0234]$); neither supports a
-stable super-additive interaction claim.
+interaction was estimated twice; the inverse-variance pooled estimate is
+$-0.0077$ (95\% simulation interval $[-0.0157,+0.0002]$), which does not
+support an interaction claim in either direction.
 
 The grid demonstrates a control failure but does not locate the supremum.
 Operating characteristics should therefore be evaluated across prespecified
@@ -109,7 +119,7 @@ rate does not deliver Type~I error control across the composite null.  The
 secondary claim is about \textbf{composition}: at the frozen full-design
 threshold, the combined SSR/RAR contrast changes sign across the evaluated
 null rates, but the factorial interaction estimates are too imprecise to
-support a stable super-additive interaction claim.
+support a stable interaction claim in either direction.
 
 Both claims are demonstrated by simulation over a grid of common baseline
 rates.  We are explicit about what such a grid can and cannot establish: it
@@ -284,51 +294,139 @@ same response process, so $H_0$ holds throughout.  No row is the calibration
 scenario: even the $p=0.25$ row has an active trend, whereas $\gamma^*$ was
 tuned at $\delta=0$.
 
+\subsection{The Constant-Rate Composite Null}
+\label{sec:constant-rate}
+
+We first hold $\delta = 0$, so the response rate is constant over calendar time
+and identical in both arms at every point of the grid.  Every point is then a
+genuine null for the analysis actually performed, and every rejection is a
+Type~I error in the conventional sense.  This isolates the robustness question
+from any question about model misspecification.
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+$p$ & SSR + RAR disabled & All mechanisms & MCSE (full) & Fixed-$\gamma^*$ difference \\
+\midrule
+0.20 & 0.0298 & 0.0058 & 0.0011 & $-0.0240$ \\
+0.22 & 0.0356 & 0.0090 & 0.0013 & $-0.0266$ \\
+0.25 & 0.0534 & 0.0236 & 0.0021 & $-0.0298$ \\
+0.27 & 0.0780 & 0.0380 & 0.0027 & $-0.0400$ \\
+0.30 & 0.0936 & 0.0810 & 0.0039 & $-0.0126$ \\
+0.33 & 0.1330 & 0.1314 & 0.0048 & $-0.0016$ \\
+0.36 & 0.1562 & 0.1854 & 0.0055 & $+0.0292$ \\
+0.40 & 0.1778 & 0.2358 & 0.0060 & $+0.0580$ \\
+0.45 & 0.2020 & 0.2786 & 0.0063 & $+0.0766$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\smallskip
+At the calibration anchor $p=0.25$ the full design attains 0.0236
+(MCSE 0.0021), consistent with the nominal 0.025 and confirming that the
+calibration itself is sound.  Moving the common baseline rate alone raises
+Type~I error monotonically: 0.0380 at $p=0.27$, 0.0810 at $p=0.30$, 0.1854 at
+$p=0.36$ and 0.2786 at $p=0.45$.  \textbf{Calibration at a point does not
+deliver control over the composite null, and no calendar trend or misspecified
+analysis is needed to show it.}
+
+The mixture prior has mean 0.3132, so the two largest rates characterise the
+shape of the curve rather than representing plausible control rates for this
+indication.  We note also that $p=0.45$ is a \emph{null} scenario in which
+both arms sit at 0.45, so there is no treatment effect; the value is
+numerically equal to the experimental-arm rate assumed under the planning
+alternative (against a 0.25 control), but the coincidence is arithmetic only
+and that row is not an alternative-hypothesis evaluation.
+Over the clinically motivated portion of the grid---departures of two to eleven
+percentage points from the anchor---Type~I error runs from 0.0380 to 0.1854, up
+to 7.4 times nominal.
+
+\subsection{Trend-Active Stress Analysis}
+\label{sec:trend-active}
+
+We next activate a shared calendar trend in both arms while retaining the
+time-constant analysis.  Contemporaneously there is still no treatment effect,
+so this remains a no-effect scenario, but the analysis is now misspecified with
+respect to the data-generating process.  Rejections here are therefore
+\emph{not} Type~I errors in the conventional sense, and we report them as
+rejection probabilities throughout.
+
 \begin{center}
 \begin{tabular}{cccc}
 \toprule
 $p$ & SSR + RAR disabled & All mechanisms & Fixed-$\gamma^*$ difference \\
 \midrule
-0.20 & 0.0336 & 0.0112 & $-0.0224$ \\
-0.22 & 0.0428 & 0.0232 & $-0.0196$ \\
-0.25 & 0.0738 & 0.0490 & $-0.0248$ \\
-0.27 & 0.0810 & 0.0698 & $-0.0112$ \\
-0.30 & 0.1174 & 0.1166 & $-0.0008$ \\
-0.33 & 0.1404 & 0.1810 & $+0.0406$ \\
-0.36 & 0.1638 & 0.2272 & $+0.0634$ \\
+0.20 & 0.0342 & 0.0092 & $-0.0250$ \\
+0.22 & 0.0474 & 0.0208 & $-0.0266$ \\
+0.25 & 0.0742 & 0.0484 & $-0.0258$ \\
+0.27 & 0.0900 & 0.0754 & $-0.0146$ \\
+0.30 & 0.1180 & 0.1206 & $+0.0026$ \\
+0.33 & 0.1398 & 0.1670 & $+0.0272$ \\
+0.36 & 0.1644 & 0.2286 & $+0.0642$ \\
+0.40 & 0.1894 & 0.2798 & $+0.0904$ \\
+0.45 & 0.1970 & 0.2874 & $+0.0904$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \smallskip
 Two readings follow.  First, \textbf{at the full-design threshold, disabling
-SSR and RAR does not restore control}: with both switched off, T1E still rises
-from 0.0336 at $p = 0.20$ to 0.1638 at $p = 0.36$.  That column is the same
-fixed-threshold ablation used throughout (Section~\ref{sec:factorial})---it
-carries $\gamma^*$, which was calibrated with SSR and RAR active.  At
-$p=0.25$ on this trend-active slice its T1E is 0.0738; neither that row nor
-the full-design row is the no-trend calibration scenario.  Read it as
-``the design with the adaptive components switched off,
-threshold unchanged'', not as a calibrated monitoring-only design.  Second,
-\textbf{at fixed $\gamma^*$, enabling SSR and RAR lowers T1E at low $p$ and
-raises it at high $p$}: the difference runs from $-0.0224$ at $p = 0.20$ to
-$+0.0634$ at $p = 0.36$, reversing sign across the range.
+SSR and RAR does not return the rejection probability to the nominal level}:
+with both switched off, it still rises from 0.0342 at $p = 0.20$ to 0.1970 at
+$p = 0.45$.
+That column is the same fixed-threshold ablation used throughout
+(Section~\ref{sec:factorial})---it carries $\gamma^*$, which was calibrated
+with SSR and RAR active.  At $p=0.25$ on this trend-active slice it is 0.0742;
+neither that row nor the full-design row is the no-trend calibration scenario.
+Read it as ``the design with the adaptive components switched off, threshold
+unchanged'', not as a calibrated monitoring-only design.  Second,
+\textbf{at fixed $\gamma^*$, enabling SSR and RAR lowers the rejection
+probability at low $p$ and raises it at high $p$}: the difference runs from
+$-0.0250$ at $p = 0.20$ to $+0.0904$ at $p = 0.45$, reversing sign across the
+range.
 
 The grid establishes a direction change, not its crossing point: the contrast
-at $p=0.30$ is within Monte Carlo error and the next evaluated rate is 0.33.
-It also demonstrates failure of uniform control but does not locate the
-supremum; it establishes only that the supremum is at least 0.2272, the largest
-observed value.  The more aggressive Rule~A stress test is summarized in
+at $p=0.30$ is $+0.0026$ against a Monte Carlo standard error of 0.0065, and
+the neighbouring rates are 0.27 and 0.33.  It also shows elevated rejection
+probabilities across the grid but does not locate their supremum.  The largest
+\emph{estimated}
+rejection probability on this grid is 0.2874; that is a Monte Carlo estimate
+carrying an MCSE of 0.0064, not a deterministic bound, and a one-sided 95\%
+simulation limit places that rate's rejection probability at or above 0.2769.
+
+Comparing this grid with the constant-rate grid of
+Section~\ref{sec:constant-rate} at matched baseline rates, the trend's
+contribution is \emph{not} monotone in the departure.  It rises across most of
+the range---$+0.0034$ at $p=0.20$, $+0.0248$ at $p=0.25$, $+0.0396$ at
+$p=0.30$, $+0.0440$ at $p=0.40$---and falls to $+0.0088$ only at $p=0.45$,
+where it is indistinguishable from zero (1.0 SE).  The fall from $p=0.40$ to
+$p=0.45$ is $-0.0352$, about 2.8 standard errors, and rests on one point at the
+grid boundary.  We report it as an observation about that point and offer no
+mechanism.  Over the range evaluated here the trend-active scenario is the more
+severe one everywhere except at the largest rate, where the two are
+indistinguishable; it should not be described as uniformly worse, nor as
+converging.  The more aggressive Rule~A stress test is summarized in
 Appendix~\ref{app:rule-a}.
 
-\begin{figure}[htb]
+% Figure 2 belongs to this section; [htb] let it drift past the next heading
+% and land after the 3.6 table. [t!] plus a \FloatBarrier after it keeps the
+% figure with the text that discusses it.
+\begin{figure}[t!]
   \centering
-  \includegraphics[width=0.90\textwidth]{figures/composite-null-plot-1.png}
-  \caption{Type~I error along the composite-null slice $\delta=0.05$.
-  Grey holds the full-design threshold with SSR and RAR disabled; dark green
-  shows all mechanisms.  Dashed red line: nominal $\alpha=0.025$.}
+  \includegraphics[width=0.86\textwidth]{figures/composite-null-plot-1.png}
+  \caption{Rejection probability across the common-rate grid.  \textbf{Left
+  panel:} the constant-rate composite null ($\delta=0$), where the analysis is
+  correctly specified and every rejection is a Type~I error.  \textbf{Right
+  panel:} the trend-active stress scenario ($\delta=0.05$), where both arms
+  drift together but the analysis remains time-constant; those rejections are
+  \emph{not} Type~I errors and are reported as rejection probabilities.  In
+  both panels, grey holds the full-design threshold with SSR and RAR disabled
+  and dark green shows all mechanisms; both are fixed-threshold comparisons,
+  not separately calibrated designs.  Dashed red line: nominal
+  $\alpha=0.025$.}
   \label{fig:composite}
 \end{figure}
+\FloatBarrier
 
 
 \subsection{Fixed-Threshold Factorial Ablation: SSR by RAR}
@@ -339,12 +437,12 @@ Four designs (SSR $\times$ RAR), all at $p = 0.30$ with the trend active:
 \begin{center}
 \begin{tabular}{lcc}
 \toprule
-Condition & T1E & MCSE \\
+Condition & Rejection probability & MCSE \\
 \midrule
-SSR + RAR disabled       & 0.1170 & 0.0045 \\
-$+$ SSR only             & 0.1138 & 0.0045 \\
-$+$ RAR only             & 0.1202 & 0.0046 \\
-$+$ SSR and RAR          & 0.1276 & 0.0047 \\
+SSR + RAR disabled       & 0.1120 & 0.0045 \\
+$+$ SSR only             & 0.1248 & 0.0047 \\
+$+$ RAR only             & 0.1236 & 0.0047 \\
+$+$ SSR and RAR          & 0.1124 & 0.0045 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -353,27 +451,56 @@ $+$ SSR and RAR          & 0.1276 & 0.0047 \\
 $\gamma^*$ was calibrated with SSR and RAR active; disabling components while
 retaining it does not yield separately calibrated designs or attributable
 shares.  The baseline cell is therefore not ``the excess caused by
-monitoring'', although it does show that disabling both components fails to
-restore control.
+monitoring'', although it does show that disabling both components leaves the
+rejection probability far above the nominal level.  These cells are trend
+active, so the quantity elevated here is a rejection probability, not a
+Type~I error.
+
+\textit{The SSR-enabled cells also accrue an additional interim analysis.}
+The monitoring schedule is $\{30,45,60,90\}$ together with the realised final
+sample size, so a trial that SSR extends beyond $N=90$ is analysed five times
+while a fixed-$N$ trial is analysed four.  Because the test statistic is a
+maximum over looks, the SSR-enabled cells receive one further opportunity to
+cross the threshold in the $\Pr(N>90)$ fraction of replicates, which is 0.3157
+at $p=0.30$.  This is correct trial conduct -- an extended trial does analyse
+at its realised final $N$ -- but it means every full-design-versus-ablation
+contrast reported here combines the adaptive mechanisms with a difference in
+multiplicity, and no contrast should be read as isolating the mechanisms
+alone.
 
 The simple contrasts are
-$\Delta_{\mathrm{SSR}\mid\mathrm{RAR}=0}=-0.0032$ and
-$\Delta_{\mathrm{RAR}\mid\mathrm{SSR}=0}=+0.0032$; the interaction is
-$\Delta_\text{interaction} = +0.0106$ (propagated MCSE 0.0092, 95\% SI
-$[-0.0074,+0.0286]$).  A fresh-seed repeat ($N=3{,}000$ per cell) gave
-$+0.0003$ (MCSE 0.0118; 95\% SI $[-0.0227,+0.0234]$).  Both intervals include
-zero.  The point estimates therefore do not support a stable SSR-by-RAR
-interaction claim under Rule~B.  Joint evaluation remains necessary because
-an interaction is possible, but its sign and magnitude should not be inferred
-from these runs.
+$\Delta_{\mathrm{SSR}\mid\mathrm{RAR}=0}=+0.0128$ and
+$\Delta_{\mathrm{RAR}\mid\mathrm{SSR}=0}=+0.0116$: each mechanism alone raises
+the rejection probability by roughly one percentage point, while enabling both
+raises it by $+0.0004$.
+
+The interaction was estimated twice, independently.  The first run
+($N=5{,}000$ per cell) gave $-0.0240$ (propagated MCSE 0.0091, 95\% SI
+$[-0.0419,-0.0061]$), which excludes zero.  A higher-precision replicate on a
+disjoint seed block ($N=20{,}000$ per cell) gave $-0.0037$ (MCSE 0.0046; 95\%
+SI $[-0.0126,+0.0052]$), which does not.  The two are 2.0 standard errors apart
+(heterogeneity $Q = 3.96$ on 1 df, $p = 0.047$) -- near the edge of what
+independent sampling produces unaided, and not on its own evidence of a defect.
+Their inverse-variance pooled estimate is $\Delta_\text{interaction} = -0.0077$
+(SE 0.0041; 95\% SI $[-0.0157,+0.0002]$).
+
+We report the pooled value and draw no directional conclusion.  The
+lower-precision run's interval excluding zero is not reproduced by the
+better-powered replicate, and we do not quote it on its own.  Joint evaluation
+remains necessary because an interaction is possible, but its sign and
+magnitude should not be inferred from these runs.
 
 \begin{figure}[htb]
   \centering
-  \includegraphics[width=0.90\textwidth]{figures/factorial-1.png}
-  \caption{Fixed-threshold Rule~B factorial ablation at $p=0.30$ with the
-  shared trend active.  The interaction annotation is a point estimate;
-  its propagated 95\% Monte Carlo simulation interval includes zero, as does
-  the fresh-seed repeat.  Dashed red line = nominal $\alpha=0.025$.}
+  \includegraphics[width=0.86\textwidth]{figures/factorial-1.png}
+  \caption{Fixed-threshold Rule~B factorial ablation of SSR by RAR at $p=0.30$
+  with the shared trend active.  Simple contrasts
+  $\Delta_{\mathrm{SSR}}=+0.0128$ and $\Delta_{\mathrm{RAR}}=+0.0116$.  The
+  interaction is estimated twice; the inverse-variance pooled estimate is
+  $-0.0077$ (95\% SI $[-0.0157,+0.0002]$), which includes zero.  Bar labels are
+  cell estimates; the interaction is not annotated in the panel because it is a
+  four-cell contrast rather than a property of any one bar.  Dashed red line =
+  nominal $\alpha=0.025$.}
   \label{fig:factorial}
 \end{figure}
 
@@ -387,34 +514,35 @@ channels.
 \begin{center}
 \begin{tabular}{lcc}
 \toprule
-Condition & T1E & vs.\ calibration \\
+Condition & Rejection probability & vs.\ calibration \\
 \midrule
-Neither (calibration) & 0.0236 & --- \\
-Departure only & 0.0894 & $+0.0658$ \\
-Trend only & 0.0468 & $+0.0232$ \\
-Both (primary) & 0.1206 & $+0.0970$ \\
+Neither (calibration) & 0.0232 & --- \\
+Departure only & 0.0904 & $+0.0672$ \\
+Trend only & 0.0474 & $+0.0242$ \\
+Both & 0.1140 & $+0.0908$ \\
 \midrule
-Additive prediction & 0.1126 & \\
-Interaction term & $+0.0080$ & \\
+Additive prediction & 0.1146 & \\
+Interaction term & $-0.0006$ & \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The departure-only simple contrast is $+0.0658$, and the trend-only simple
-contrast is $+0.0232$.  Because both factors feed monitoring, SSR and RAR,
+The departure-only simple contrast is $+0.0672$, and the trend-only simple
+contrast is $+0.0242$.  Because both factors feed monitoring, SSR and RAR,
 neither contrast is attributable to a single channel.  Unlike the
 fixed-threshold ablations, all four cells share the full design and a common
-calibrated baseline.  The interaction is $+0.0080$ (MCSE 0.0071; 95\% SI
-$[-0.0060,+0.0220]$), so it does not demonstrate super-additivity.  It is a
-risk-difference interaction at these factor levels and includes the additional
-trend exposure from enrollment beyond $N=90$; Rule~B limits that extension to
-100 at the planned SSR look.
+calibrated baseline.  The interaction is $-0.0006$ (MCSE 0.0071; 95\% SI
+$[-0.0145,+0.0133]$) and is indistinguishable from zero: the joint effect of a
+baseline departure and a calendar trend is, at these factor levels, what adding
+the two separate effects would predict.  It is a risk-difference interaction at
+these factor levels and includes the additional trend exposure from enrollment
+beyond $N=90$; Rule~B limits that extension to 100 at the planned SSR look.
 
 \begin{figure}[htb]
   \centering
-  \includegraphics[width=0.90\textwidth]{figures/departure-trend-crossing-1.png}
+  \includegraphics[width=0.86\textwidth]{figures/departure-trend-crossing-1.png}
   \caption{Departure-by-trend crossing under the full design.  The interaction
-  is $+0.0080$ (95\% SI $[-0.0060,+0.0220]$); dashed red line denotes nominal
+  is $-0.0006$ (95\% SI $[-0.0145,+0.0133]$); dashed red line denotes nominal
   $\alpha=0.025$.}
   \label{fig:factors}
 \end{figure}
@@ -427,16 +555,18 @@ characterize mechanism sensitivity across a wider range.
 
 \begin{itemize}[noitemsep]
   \item \textbf{Departure severity}, at constant trend
-    ($p \in \{0.25, 0.27, 0.30\}$, all with $\delta = 0.05$): T1E increases
-    monotonically, 0.0490 $\to$ 0.0698 $\to$ 0.1166, with no direction
-    reversal.
+    ($p \in \{0.25, 0.27, 0.30\}$, all with $\delta = 0.05$): the rejection
+    probability increases monotonically, 0.0484 $\to$ 0.0754 $\to$ 0.1206,
+    with no direction reversal.
   \item \textbf{Vague-component weight} (0--90\%): larger weight on the flat
-    robustify component means less borrowing; T1E declines from 0.1488 to
-    0.0624.
-  \item \textbf{Time trend} $\delta$ (0--15\%): T1E increases from 0.0812 to
-    0.2220.
+    robustify component means less borrowing; the rejection probability
+    declines from 0.1488 to 0.0624.
+  \item \textbf{Time trend} $\delta$ (0--15\%): the rejection probability
+    increases from 0.0812 at $\delta=0$---which is a Type~I error, the trend
+    being absent---to 0.2220 at $\delta=0.15$.
   \item \textbf{SSR trigger timing}: moving the primary look from $n=45$ to
-    $n=30$ changed T1E from 0.1161 to 0.1244; a separate sweep over
+    $n=30$ changed the rejection probability from 0.1161 to 0.1244; a separate
+    sweep over
     $n_\text{SSR}\in\{20,30,40,45,55,60\}$ ranged from 0.1126 to 0.1234.
     Timing also changes the realised final-$N$ distribution, so these are not
     isolated timing effects.
@@ -474,8 +604,15 @@ This paper demonstrates a control failure by simulation in a specific design
 class; several limitations bound what it establishes.
 
 \emph{The supremum is not estimated.}  The grid exhibits points at which
-control fails and establishes that the supremum is at least 0.2272, the largest
-value observed.  It does not locate the worst case.
+control fails.  The largest \emph{estimated} Type~I error on the constant-rate
+grid is 0.2786, which is a Monte Carlo estimate with an MCSE of 0.0063 and may
+lie either side of the true value at that rate; a one-sided 95\% simulation
+limit places it at or above 0.2682.  Neither figure locates the worst case, and
+the curve has not flattened at the grid boundary---the final three increments
+are $+0.0540$, $+0.0504$ and $+0.0428$---so the supremum over the composite
+null is plausibly well above any value evaluated here.  A probabilistic bound
+on the supremum itself would require a search over the null, not a finite
+grid.
 
 \emph{Conflict is not quantified.}  We vary the calibration-anchor departure,
 not a prior-predictive conflict measure.  Extending prior--data diagnostics such
@@ -506,10 +643,10 @@ each design separately.
 
 Point calibration did not provide uniform Type~I error control across the
 composite null.  At the full-design threshold, disabling SSR and RAR did not
-restore control.  The fixed-$\gamma^*$ contrast reversed sign across the
+restore it on the constant-rate grid.  The fixed-$\gamma^*$ contrast reversed sign across the
 evaluated null rates, but the Rule~B factorial and departure-by-trend
 interaction intervals both included zero; the simulations do not support a
-stable super-additive interaction claim.
+stable interaction claim in either direction.
 
 The practical consequence is a reporting standard rather than a new method.
 Operating characteristics should be evaluated over a prespecified grid of
@@ -538,12 +675,16 @@ The original Rule~A treated the pooled interim rate as a one-sample signal
 against $p_0=0.25$ and increased total sample size to target 80\% conditional
 power, capped at $N=150$.  A common upward nuisance shift under the two-arm null
 could therefore drive expansion, so it was replaced before publication by
-Rule~B.  With $\gamma^*=0.96596$, Rule~A reached T1E 0.2618 at $p=0.36$ under
-the trend-active null grid, compared with 0.2272 under Rule~B.  This more
+Rule~B.  With $\gamma^*=0.96596$, Rule~A reached a rejection probability of
+0.2618 at $p=0.36$ under the trend-active null grid, compared with 0.2286
+under Rule~B at the same rate.  This more
 aggressive result is retained only as a stress-test summary; full outputs and
 source are not part of the primary Rule~B release.
 
 % ─────────────────────────────────────────────────────────────────────────────
+% Tighten the reference list: natbib's default inter-entry spacing pushed
+% two entries onto a page of their own.
+\setlength{\bibsep}{0.6ex plus 0.2ex}
 \bibliographystyle{plainnat}
 \bibliography{references}
 

@@ -31,27 +31,46 @@ adaptive components off restores it.
 ### Key findings
 
 - **Point calibration does not deliver control across the composite null.** With
-  the threshold calibrated to α = 0.025 at the design anchor p₀ = 0.25, Type I
-  error reaches 0.2272 with all mechanisms active at p = 0.36 (and 0.1638
-  for the SSR/RAR-disabled ablation, which carries the same uncalibrated
-  threshold).
+  the threshold calibrated to α = 0.025 at the design anchor p₀ = 0.25, the
+  design performs as intended at the anchor itself (Type I error 0.0236 against
+  a nominal 0.025) but not away from it. Holding the rate constant over calendar
+  time — so that every rejection is a Type I error in the conventional sense —
+  changing only the common baseline rate gives 0.0810 at p = 0.30, 0.1854 at
+  p = 0.36 and 0.2786 at p = 0.45, with the curve still climbing at the grid
+  boundary. **No calendar trend and no misspecified analysis are needed.**
+- **A separate trend-active grid is reported as a stress analysis.** Both arms
+  drift together under a time-constant analysis, so there is still no
+  contemporaneous treatment effect, but rejections there are *not* Type I errors
+  and are reported as rejection probabilities. That grid reaches 0.2874.
 - **Switching the adaptive components off does not restore control.** With SSR
-  and RAR disabled but the full-design threshold retained, T1E is 0.1170 at
-  p = 0.30. This ablation is **not separately calibrated**, so its difference
-  from the full design is not an attributable share.
-- **Composition modifies the excess nonlinearly, and its sign depends on where
-  in the null the design is evaluated.** The full-minus-ablation contrast runs
-  from −0.0224 at p = 0.20 to +0.0634 at p = 0.36.
-- **The updated interaction estimates do not support a stable super-additive
-  claim.** The Rule B SSR × RAR interaction is +0.0106 (95% SI
-  [−0.0074, +0.0286]); a fresh-seed repeat is +0.0003
-  ([−0.0227, +0.0234]). The departure × trend interaction is +0.0080
-  ([−0.0060, +0.0220]).
+  and RAR disabled but the full-design threshold retained, the constant-rate
+  Type I error is still 0.0936 at p = 0.30 and 0.2020 at p = 0.45. This ablation
+  is **not separately calibrated**, so its difference from the full design is
+  not an attributable share — and the SSR-enabled cells additionally accrue a
+  fifth interim look whenever SSR extends enrollment.
+- **The sign of the composition contrast depends on where in the null the
+  design is evaluated.** The full-minus-ablation contrast runs from −0.0250 at
+  p = 0.20 to +0.0904 at p = 0.45 on the trend-active grid.
+- **The interaction estimates do not support a claim in either direction.** The
+  SSR × RAR interaction was estimated twice: −0.0240 (95% SI [−0.0419, −0.0061],
+  N = 5,000/cell) and −0.0037 ([−0.0126, +0.0052], N = 20,000/cell). The
+  inverse-variance pooled estimate is **−0.0077 ([−0.0157, +0.0002])**, which
+  includes zero; we report the pooled value and draw no directional conclusion.
+  The departure × trend interaction is −0.0006 ([−0.0145, +0.0133]).
 
 ### Scope and limitations
 
 - The grid **demonstrates** a control failure and establishes that the supremum
-  is at least 0.2272. It does not locate the supremum.
+  of the Type I error is at least 0.2786. It does not locate the supremum, and
+  the curve has not flattened at the grid boundary. The two largest rates
+  (0.40, 0.45) characterise the shape of the curve rather than representing
+  plausible control rates: the mixture prior has mean 0.3132, and p = 0.45
+  is numerically equal to the experimental-arm rate assumed under the planning
+  alternative (against a 0.25 control). That row is still a **null**: both arms
+  sit at 0.45, so there is no treatment effect, and the coincidence is
+  arithmetic only. Over the clinically motivated
+  range — departures of two to eleven percentage points from the anchor —
+  Type I error runs from 0.0380 to 0.1854.
 - Scenarios are departures of the baseline rate from the **calibration anchor**
   p₀ = 0.25, not quantified prior-data conflict (which would be defined against
   the prior predictive distribution). Note the anchor is not the mean of any
