@@ -159,31 +159,40 @@ three increments are $+0.0540$, $+0.0504$ and $+0.0428$.
 deterministic lower bound on the supremum: it carries Monte Carlo error
 (MCSE 0.0063) and may lie either side of the true rejection probability at that
 rate. A one-sided 95% simulation limit puts that rate's Type I error at or
-above 0.2682. The supremum over the whole composite null is not estimated at
-all, since the grid is finite and the curve has not flattened. Thus
+above 0.2682. Because the supremum is at least the value at every evaluated
+point, that pointwise limit is also a conservative lower confidence bound for
+the supremum. It does not locate the supremum or provide an upper bound. The
+superiority null is $H_0:p_e\le p_c$. This grid evaluates only its constant-rate
+equality boundary, $p_e=p_c=p$. Finding an error rate above $\alpha$ anywhere on
+that boundary is sufficient to refute uniform control, but the study does not
+establish that the boundary is least favorable or characterize the interior
+$p_e<p_c$. The supremum over the whole composite null is not estimated, since
+the grid is finite and the curve has not flattened. Thus
 calibration succeeds at
-the anchor but is not portable across the constant-rate composite null; this
+the anchor but is not portable across the evaluated constant-rate equality
+boundary; this
 failure does not require a calendar trend or a misspecified time-constant
 analysis. Fixed-threshold ablations that disable SSR and RAR do not restore
 Type I error control across the constant-rate grid either.
 
 **The trend's contribution is not monotone in the departure.** Comparing the
-two grids at matched baseline rates, the contribution of the calendar trend
-*rises* across most of the evaluated range — $+0.0034$ at $p=0.20$, $+0.0248$
-at $p=0.25$, $+0.0396$ at $p=0.30$, $+0.0432$ at $p=0.36$, $+0.0440$ at
-$p=0.40$ — and falls to $+0.0088$ only at $p=0.45$, where it is
-indistinguishable from zero (1.0 Monte Carlo standard error). The fall from
-$p=0.40$ to $p=0.45$ is $-0.0352$, about 2.8 standard errors, and rests on a
-single point at the grid boundary.
+two grids at matched baseline rates, the trend-active point estimate is higher
+at every evaluated rate. The difference rises from $+0.0034$ at $p=0.20$ to
+$+0.0396$ at $p=0.30$, dips slightly to $+0.0356$ at $p=0.33$, reaches
+$+0.0440$ at $p=0.40$, and falls to $+0.0088$ at $p=0.45$. The $p=0.20$ gap
+is borderline (2.0 Monte Carlo standard errors), and the $p=0.45$ gap is
+indistinguishable from zero (1.0 standard error), so no claim of uniform
+separation is made. The fall from $p=0.40$ to $p=0.45$ is $-0.0352$, about
+2.8 standard errors, and rests on a single point at the grid boundary.
 
 We record that as an observation about the boundary point and offer no
 mechanism for it. An earlier draft of this document described the two curves as
 narrowing monotonically and attributed the narrowing to the departure
 saturating whatever the trend would otherwise exploit; the full nine-point grid
 does not support either statement, which was drawn from the two endpoints
-alone. What can be said is narrower: over the range evaluated here the
-trend-active scenario is the more severe one everywhere except at the largest
-rate, where the two are indistinguishable.
+alone. What can be said is narrower: the trend-active point estimates are
+higher throughout the evaluated range, with borderline separation at the
+lowest rate and no distinguishable separation at the largest.
 
 **Secondary finding — composition.** At the frozen full-design threshold, the
 combined SSR/RAR contrast in the trend-active sweep changes sign across the
@@ -198,12 +207,12 @@ lower-precision estimate excludes zero. Their inverse-variance pooled estimate
 is -0.0077 (95% simulation interval: -0.0157 to +0.0002).
 
 **Scope.** On the constant-rate grid, the largest estimated Type I error is
-0.2786 (MCSE 0.0063) at $p=0.45$, about 11.1 times nominal; on the clinically
-motivated part of the grid ($p = 0.27$ to $0.36$, i.e. departures of two to
+0.2786 (MCSE 0.0063) at $p=0.45$, about 11.1 times nominal; on the lower
+evaluated part of the grid ($p = 0.27$ to $0.36$, i.e. departures of two to
 eleven percentage points from the anchor) it runs from 0.0380 to 0.1854, up to
-7.4 times nominal. The mixture prior has mean 0.3132, so the two largest rates
-are included to characterise the shape of the curve rather than as plausible
-control rates for this indication; $p=0.45$ additionally coincides with the
+7.4 times nominal. The two largest rates are included to characterise the
+shape of the curve; this study does not assert that they are plausible control
+rates for the indication. The value $p=0.45$ additionally coincides with the
 experimental-arm rate assumed under the planning alternative. That row remains
 a **null**: both arms sit at 0.45, so there is no treatment effect, and the
 equality is arithmetic coincidence rather than an alternative-hypothesis
@@ -214,14 +223,15 @@ estimate is a deterministic lower bound on the underlying supremum. Each value
 is reported with its Monte Carlo standard error, and neither finite grid locates
 the true continuum supremum. Scenarios are
 departures of the baseline rate from the calibration anchor $p_0 = 0.25$, not
-quantified prior–data conflict. On the plausibility of departures of this size,
-@tang_2010 treat a five-percentage-point control-rate drift as clinically modest
-in an oncology simulation, and @viele_2014 review the conditions under which
-historical and concurrent control rates diverge. Allocation targets follow the
+quantified prior–data conflict. For context on the five-percentage-point
+scenario, @tang_2010 treat a shift of that size as modest in an oncology
+simulation of historical-control designs; their study does not validate the
+design used here. @viele_2014 review conditions under which historical and
+concurrent control rates diverge. Allocation targets follow the
 optimal-allocation literature [@rosenberger_optimal; @rosenberger_lachin].
 
-The platform and its benchmark framework are documented in the Zetyra white
-paper [@zetyra_whitepaper]; the Bayesian calculators used here are documented
+The Zetyra platform and its broader benchmark framework are documented in its
+white paper [@zetyra_whitepaper]; related Bayesian calculators are documented
 separately [@zetyra_bayesian_toolkit].
 
 Simulation code:
@@ -289,10 +299,11 @@ delta_trend <- 0.05   # linear drift over full enrollment
 # 701000-709000, 901000-909000 and 1001000-1009000. Still disjoint, and disjoint
 # from the factorial (300000), crossing (400000) and fresh-seed (800000) blocks.
 #
-# Interpretive caveat: the design's prior mixture has mean 0.3132, so p = 0.45 is
-# a 14-point departure from the anchor and coincides with the planning
-# alternative p_alt = 0.45 -- a valid null (p_e = p_c) but not a clinically
-# motivated one. The two added points are for locating the SHAPE of the curve
+# Interpretive caveat: p = 0.45 is 20 percentage points above the calibration
+# anchor (0.25) and about 14 above the prior mixture mean (0.3132) -- the two
+# reference points are different and the distance should be named against
+# whichever one is meant. It also coincides with the planning alternative
+# p_alt = 0.45 -- a valid null (p_e = p_c) but not a clinically motivated one. The two added points are for locating the SHAPE of the curve
 # (does Type I error plateau or keep climbing?); claims about practically
 # relevant departures should stay anchored on 0.27-0.36.
 p_null_grid <- c(0.20, 0.22, 0.25, 0.27, 0.30, 0.33, 0.36, 0.40, 0.45)
@@ -319,7 +330,7 @@ mcse_ci <- function(p_hat, n_sim) {
 
 ## 5.2 Component-Level Validation
 
-### 5.2.1 MAP Prior — Benchmarked Against RBesT [@weber_rbest]
+### 5.2.1 MAP Prior — Fitted-Object Internal Consistency Check [@weber_rbest]
 
 ```{r map-prior-fit}
 #| warning: true
@@ -362,6 +373,14 @@ print(rob_mix)
 ```
 
 ```{r map-prior-validation, fig.cap="MAP prior density: components and mixture from the fitted rob_mix object. Analytic density reproduces dmix() to floating-point precision."}
+#| cache.extra: !expr list(zet_palette = ZET, frozen_md5 = tools::md5sum("map_prior_frozen.R"))
+# cache.extra carries the frozen file's checksum because this chunk now READS
+# that file to set prior_mix, and autodep only tracks objects passing between
+# cached chunks -- it cannot see a file read. Without this key, editing
+# map_prior_frozen.R would leave the cache valid and the edit would silently
+# not take. zet_palette is repeated from the global cache.extra because a
+# chunk-level value replaces the global one rather than extending it, and this
+# chunk draws a figure.
 
 p_seq <- seq(0.01, 0.99, length.out = 500)
 
@@ -397,6 +416,50 @@ print(round(prior_mix, 4))
 cat(sprintf("  mixture mean = %.4f\n", sum(w_fit * a_fit / (a_fit + b_fit))))
 stopifnot(abs(sum(w_fit) - 1) < 1e-8)
 
+# ── The refit is a validation calculation; the frozen file is the input ──────
+# The stopifnot() above is the only assertion this block used to carry, and it
+# cannot fail: mixture weights sum to one by construction. Every operating
+# characteristic in this study is computed against this prior, and the fit runs
+# automixfit() -> robustify() on top of gMAP()/rstan, so an RBesT or Stan
+# upgrade can move it -- and would move every number in the paper with no check
+# going red.
+#
+# So the simulation is driven from a committed constant rather than from a live
+# package call, and the refit above becomes the thing being validated. The
+# checks themselves live in the uncached preflight chunk immediately below.
+#
+# Canonicalise by descending `a` first, and drop dimnames, so neither the
+# comparison nor the input depends on the order or the component names that
+# automixfit() and robustify() happen to return.
+map_canonical <- function(m) {
+  m <- m[, order(m["a", ], decreasing = TRUE), drop = FALSE]
+  unname(m[c("w", "a", "b"), , drop = FALSE])
+}
+prior_fitted_canon <- map_canonical(prior_mix)
+
+# Required, never silently recreated. Regenerating on absence would let a
+# changed fit quietly install itself as the new reference, which is the failure
+# this whole block exists to prevent.
+MAP_FROZEN_PATH <- "map_prior_frozen.R"
+if (!file.exists(MAP_FROZEN_PATH)) {
+  stop(MAP_FROZEN_PATH, " is missing. It is a required release artifact and is ",
+       "not created automatically. To create it deliberately, run once:\n",
+       "    dput(prior_fitted_canon, \"", MAP_FROZEN_PATH,
+       "\", control = c(\"all\", \"hexNumeric\"))\n",
+       "then review the diff and commit it.")
+}
+prior_mix <- unname(dget(MAP_FROZEN_PATH))
+dimnames(prior_mix) <- list(c("w", "a", "b"), NULL)
+stopifnot(identical(dim(prior_mix), dim(prior_fitted_canon)))
+
+# This assignment is deliberately in a CACHED chunk. autodep keys cached chunks
+# on the objects they use, but its graph covers cached chunks only -- an
+# uncached chunk is not a node in it. Setting prior_mix from an uncached chunk
+# would leave every downstream cached result restored from the previous prior,
+# with nothing to signal it.
+cat(sprintf("  simulation input: %s (%d components)\n",
+            MAP_FROZEN_PATH, ncol(prior_mix)))
+
 # Component densities for plot
 df_comps <- tibble(
   p     = rep(p_seq, length(w_fit) + 1),
@@ -423,6 +486,67 @@ cat(sprintf("\nMAP PRIOR:  max dev = %.2e  [floating-point precision]  %s\n",
 cat(sprintf("MIXTURE APPROXIMATION: max empirical-CDF dev = %.4f (%d predictive draws)\n",
             mixfit_cdf_dev, length(pred_draws)))
 stopifnot(max_dev_map < 1e-8, mixfit_cdf_dev < 0.05)
+```
+
+```{r map-prior-preflight}
+#| cache: false
+# ── Preflight: the prior invariant, before anything expensive ────────────────
+# Uncached, so a cached render cannot skip it. Placed here rather than at the
+# end of the document so that a failure costs seconds instead of a 30-60 minute
+# render. It reads prior_fitted_canon and prior_mix and writes nothing any later
+# chunk consumes, so it does not enter the autodep graph.
+
+# LAYER 1 -- the published representation.
+# Not a tolerance. The question is precisely whether this fit still rounds to
+# the four-decimal table in rerun/VERIFIED_NUMBERS.md Sec. 5, because that
+# rounded matrix is what both manuscripts print. A tolerance cannot express
+# that: two values can sit well within any epsilon of each other and still
+# round to different fourth decimals.
+MAP_REFERENCE_4DP <- unname(rbind(
+  w = c(0.5887,  0.2113, 0.2000),
+  a = c(18.4026, 1.9564, 1.0000),
+  b = c(53.2729, 4.7033, 1.0000)
+))
+map_fitted_4dp <- round(prior_fitted_canon, 4)
+if (!identical(map_fitted_4dp, MAP_REFERENCE_4DP)) {
+  cat("refit, rounded to 4 dp:\n"); print(map_fitted_4dp)
+  cat("recorded reference:\n");     print(MAP_REFERENCE_4DP)
+  stop("The refitted MAP mixture no longer rounds to the published ",
+       "four-decimal reference. VERIFIED_NUMBERS.md Sec. 5 and both ",
+       "manuscripts print that matrix: reconcile them before rendering.")
+}
+
+# LAYER 2 -- the computational object.
+# An explicit maximum absolute difference, described as one. Not identical():
+# map_prior_frozen.R is a dput() text serialisation. It is committed using
+# control = c("all", "hexNumeric"), which round-trips the generating doubles
+# bitwise; even "digits17" can round by one ulp on some platforms. The explicit
+# bound remains a separate, portable diagnostic for a refit in a changed
+# numerical environment.
+MAP_FROZEN_TOL <- 1e-12
+# unname() on both sides: prior_mix carries rownames because downstream code
+# indexes it as prior_mix["a", ], while prior_fitted_canon is bare. identical()
+# compares attributes, so without this the bitwise report would always be FALSE
+# for a reason that has nothing to do with the numbers.
+map_frozen_dev <- max(abs(unname(prior_mix) - prior_fitted_canon))
+map_frozen_bitwise <- identical(unname(prior_mix), prior_fitted_canon)
+
+cat("MAP prior preflight\n")
+cat("  layer 1  refit rounds to the published 4 dp reference: yes\n")
+cat(sprintf("  layer 2  max |frozen - refit| = %.3e  (bound %.0e)\n",
+            map_frozen_dev, MAP_FROZEN_TOL))
+cat(sprintf("  frozen file round-trips bitwise: %s\n",
+            if (map_frozen_bitwise) "yes" else
+              "NO -- regenerate with control = c(\"all\", \"hexNumeric\")"))
+
+if (map_frozen_dev > MAP_FROZEN_TOL) {
+  cat("frozen (simulation input):\n"); print(prior_mix)
+  cat("refit:\n");                     print(prior_fitted_canon)
+  stop("The refitted MAP mixture differs from ", MAP_FROZEN_PATH, " by ",
+       signif(map_frozen_dev, 3), ", above the ", MAP_FROZEN_TOL, " bound. ",
+       "The simulation input has not changed -- it is the committed file -- ",
+       "but the environment no longer reproduces it.")
+}
 ```
 
 ### 5.2.2 Posterior Probability Helper
@@ -489,8 +613,8 @@ rm(.g8)
 #
 # NOTE (2026-07 correction): this was previously a 2,000-draw Monte Carlo
 # estimate. Because the monitoring rule takes a maximum over interim looks,
-# Monte Carlo noise in the estimate inflated that maximum, and identical trial
-# data could yield different decisions. Deterministic 400-node Gauss-Legendre
+# Monte Carlo noise in the estimate can upward-bias that maximum, and identical
+# trial data can yield different decisions. Deterministic 400-node Gauss-Legendre
 # quadrature removes that randomness.
 #
 # It is DETERMINISTIC, not exact. The sanity checks above verify the
@@ -517,9 +641,9 @@ map_posterior_prob <- function(x_e, n_e, x_c, n_c, mix) {
   # density has an integrable singularity at 1 that 400 Gauss-Legendre nodes
   # resolve only approximately, and near-separation states can overshoot (e.g.
   # x_e = 44, n_e = 45 returns 1.0000005). The error is ~0.3-1.1% on those
-  # states and they sit well above gamma*, so no reported operating
-  # characteristic changes; returning a "probability" above 1 is nonetheless
-  # indefensible on inspection.
+  # states. The adaptive-integration reference values for those states remain
+  # above gamma*, so their individual boundary decisions do not change;
+  # returning a "probability" above 1 is nonetheless indefensible on inspection.
   min(max(sum(.QW * f_e * F_c), 0), 1)
 }
 ```
@@ -667,7 +791,12 @@ cat(sprintf("  Operational final-N range over x = 0,...,%d: %d to %d\n",
             n_ssr, min(ssr_lookup$final_N), max(ssr_lookup$final_N)))
 ```
 
-### 5.2.4 RAR — Benchmarked Against Analytic Allocation [@rosenberger_optimal]
+### 5.2.4 RAR — Stand-Alone One-Step Check Against Analytic Allocation [@rosenberger_optimal]
+
+This diagnostic reimplements a single Thompson-sampling allocation draw from
+a fixed posterior state. It does not invoke the allocation path inside
+`simulate_one_trial()` and therefore should not be read as an end-to-end check
+of the production simulator.
 
 ```{r rar-validation}
 #| cache: true
@@ -781,7 +910,7 @@ stopping, or allocations after a stopping boundary would first be crossed.
 #   together, so the monitoring looks are not taken at identical sample sizes
 #   across the two arms of the comparison. See section 5.3.
 #
-# Factorial decomposition: use_ssr x use_rar gives four conditions.
+# Factorial ablation: use_ssr x use_rar gives four conditions.
 # Factor crossing: vary p_c_data (baseline-rate departure) and delta (trend).
 
 # Returns the MAXIMUM posterior probability across scheduled looks.
@@ -801,7 +930,7 @@ stopping, or allocations after a stopping boundary would first be crossed.
 simulate_one_trial <- function(
     mix,                  # REQUIRED: fitted prior, rows (w, a, b)
     p_true_e   = 0.25,
-    p_c_data   = 0.25,    # control data-generating rate (conflict: != p0)
+    p_c_data   = 0.25,    # control baseline rate (departure from anchor if != p0)
     delta      = 0,       # time trend magnitude
     n_ssr_trig = 45L,     # when SSR fires (reference=45, sensitivity=30)
     use_ssr    = TRUE,    # FALSE = no sample size adaptation
@@ -1102,9 +1231,12 @@ boundary_states |>
     "the calibrated boundary among balanced and 30:70/70:30 allocation grids."))
 ```
 
-This is a targeted decision-boundary check, not an exhaustive enumeration of
-every state reachable under RAR. It directly tests the numerical decisions most
-likely to change the reported rejection probabilities.
+This is a targeted decision-boundary check over the specified allocation grids,
+not an exhaustive enumeration of every state reachable under RAR. It checks
+selected numerical decisions near $\gamma^*$, but it does not establish
+invariance for all reachable states or under a different integration rule. All
+reported operating characteristics are conditional on the specified 400-node
+implementation.
 
 ```{r anchor-validation}
 #| cache: true
@@ -1168,7 +1300,7 @@ cat(sprintf("Excess over nominal:           +%.4f  (+%.1f%%)\n",
 ```{r mild-conflict-sim}
 #| cache: true
 
-# MILD DEPARTURE: p_e = p_c = 0.27, i.e. +2 pp above the DESIGN NULL p0 = 0.25
+# +2 PP FROM ANCHOR: p_e = p_c = 0.27, relative to p0 = 0.25
 # (the rate at which gamma* was calibrated). Not defined relative to the
 # robustified mixture mean, which is 0.3132 -- above both departure scenarios.
 # These rows share the active trend and all design settings with the
@@ -1188,11 +1320,11 @@ t1e_mild      <- t1e_at(pp_mild, gamma_star)
 inflation_mild <- t1e_mild - alpha
 inflation_pct_mild <- inflation_mild / alpha * 100
 
-cat(sprintf("MILD DEPARTURE rejection probability: %.4f  (nominal reference %.3f)\n",
+cat(sprintf("+2 PP FROM ANCHOR rejection probability: %.4f  (nominal reference %.3f)\n",
             t1e_mild, alpha))
 cat(sprintf("Excess over nominal:                    +%.4f  (+%.1f%%)\n",
             inflation_mild, inflation_pct_mild))
-cat(sprintf("vs. strong departure: %.4f  (strong = %.4f)\n", t1e_mild, t1e_primary))
+cat(sprintf("vs. +5 pp from anchor: %.4f  (+5 pp = %.4f)\n", t1e_mild, t1e_primary))
 
 # Comparison table
 tribble(
@@ -1200,9 +1332,9 @@ tribble(
   ~`vs. nominal`,
   "At anchor (independent validation)", "0.25", "0", anchor_validation_t1e,
     sprintf("%+.1f%%", (anchor_validation_t1e - alpha) / alpha * 100),
-  "Mild departure (p=0.27)", "0.27", "0.05", t1e_mild,
+  "+2 pp from anchor (p=0.27)", "0.27", "0.05", t1e_mild,
     sprintf("%+.1f%%", inflation_pct_mild),
-  "Strong departure (p=0.30)", "0.30", "0.05", t1e_primary,
+  "+5 pp from anchor (p=0.30)", "0.30", "0.05", t1e_primary,
     sprintf("%+.1f%%", inflation_pct)
 ) |>
   mutate(`Rejection probability` = sprintf("%.4f", `Rejection probability`)) |>
@@ -1327,7 +1459,7 @@ calibrated with SSR and RAR *active*. The ablation cells retain that threshold,
 so they are not calibrated to $\alpha$. Do not read the baseline cell as an
 attributable share.
 
-**The SSR-enabled cells also accrue an additional interim analysis.** The
+**The SSR-enabled cells can accrue an additional efficacy analysis.** The
 monitoring schedule is $\{30, 45, 60, 90\}$ together with the *realised* final
 sample size, so a trial that SSR extends beyond $N = 90$ is analysed five times
 where a fixed-$N$ trial is analysed four. Because the test statistic is a
@@ -1373,7 +1505,10 @@ factorial_res <- factorial_grid |>
            !use_ssr & !use_rar ~ "Baseline\n(no SSR, no RAR)",
            use_ssr  & !use_rar ~ "SSR only\n(fixed allocation)",
            !use_ssr & use_rar  ~ "RAR only\n(no SSR)",
-           use_ssr  & use_rar  ~ "SSR + RAR\n(trend stress)"
+           # Was "(trend stress)", which read as though the other three cells
+           # were not trend-active. All four are p = 0.30 with delta = 0.05;
+           # the shared scenario belongs in the subtitle, not on one bar.
+           use_ssr  & use_rar  ~ "SSR + RAR\n(both active)"
          ))
 
 # Factorial effects — prefixed _f_ to avoid collision with sensitivity t1e_ssr
@@ -1434,7 +1569,10 @@ factorial_res |>
   scale_fill_manual(values = c(`FALSE` = ZET$neutralF, `TRUE` = ZET$green)) +
   scale_y_continuous(limits = c(0, max(t1e_factorial) * 1.30),
                      labels = percent_format(accuracy = 0.1)) +
-  labs(x = NULL, y = "Rejection probability") +
+  labs(x = NULL, y = "Rejection probability",
+       subtitle = expression(paste(
+         "All four cells: ", italic(p), " = 0.30, ", delta,
+         " = 0.05, fixed full-design threshold ", gamma, "*"))) +
   theme_zetyra() + theme(legend.position = "none")
 ```
 
@@ -1444,7 +1582,7 @@ tribble(
   "Baseline (no SSR, no RAR)", t1e_f_base, "—",
   "SSR only (fixed allocation)", t1e_f_ssr, sprintf("%+.4f", delta_f_ssr),
   "RAR only (no SSR)",          t1e_f_rar, sprintf("%+.4f", delta_f_rar),
-  "SSR + RAR (trend stress)", t1e_f_both,
+  "SSR + RAR (both active)", t1e_f_both,
     sprintf("%+.4f", t1e_f_both - t1e_f_base)
 ) |>
   mutate(`Rejection probability` =
@@ -1454,6 +1592,10 @@ tribble(
                          "; uncertainty and a fresh-seed check are reported below."),
         align = c("l","r","r"))
 ```
+
+The baseline-referenced contrasts are descriptive point estimates. Their
+approximate Monte Carlo standard errors are 0.0064--0.0065, and none is used as
+evidence of a directional component effect.
 
 ---
 
@@ -1562,7 +1704,7 @@ probability to a component in any case.
 
 The trend-active stress scenario activates both factors simultaneously. Here we
 *cross* them in a 2×2 design (baseline-rate departure × time trend) to see how each
-changes rejection probability, and whether their joint contrast exceeds the
+changes rejection probability, and whether their joint contrast differs from the
 additive prediction.
 
 This is a factor-crossing experiment, **not** mechanism isolation. Both factors feed
@@ -1604,7 +1746,7 @@ t1e_mech <- vapply(seq_len(nrow(mech_grid)), function(k) {
 mech_res <- mech_grid |>
   mutate(T1E   = t1e_mech,
          label = case_when(
-           !conflict & !trend ~ "Neither\n(calibration)",
+           !conflict & !trend ~ "Anchor, no trend\n(independent run)",
            conflict  & !trend ~ "Departure only\n(no trend)",
            !conflict & trend  ~ "Trend only\n(at anchor)",
            conflict  & trend  ~ "Both\n(trend stress)"
@@ -1619,9 +1761,9 @@ t1e_both_mech<- mech_res$T1E[ mech_res$conflict &  mech_res$trend]
 additive_pred <- t1e_conf_only + t1e_trend_only - t1e_neither
 interaction_term <- t1e_both_mech - additive_pred
 
-cat(sprintf("Departure only:   %.4f  (+%.4f vs. calibration)\n",
+cat(sprintf("Departure only:   %.4f  (+%.4f vs. anchor run)\n",
             t1e_conf_only,  t1e_conf_only  - t1e_neither))
-cat(sprintf("Trend only:       %.4f  (+%.4f vs. calibration)\n",
+cat(sprintf("Trend only:       %.4f  (+%.4f vs. anchor run)\n",
             t1e_trend_only, t1e_trend_only - t1e_neither))
 cat(sprintf("Additive prediction: %.4f\n", additive_pred))
 cat(sprintf("Observed (both):     %.4f\n", t1e_both_mech))
@@ -1721,10 +1863,10 @@ mech_res |>
 
 ```{r departure-trend-table}
 tribble(
-  ~Condition, ~`Rejection probability`, ~`vs. calibration`, ~Note,
-  "Neither (calibration)",    t1e_neither,   "—",              "threshold target",
+  ~Condition, ~`Rejection probability`, ~`vs. anchor run`, ~Note,
+  "Anchor, no trend (independent run)", t1e_neither, "—", "independent reference cell",
   "Departure only (no trend)", t1e_conf_only,
-    sprintf("%+.4f", t1e_conf_only - t1e_neither),  "prior away from realised rate",
+    sprintf("%+.4f", t1e_conf_only - t1e_neither),  "baseline away from calibration anchor",
   "Trend only (at anchor)", t1e_trend_only,
     sprintf("%+.4f", t1e_trend_only - t1e_neither), "rate drifts from anchor",
   "Both (trend stress)",      t1e_both_mech,
@@ -1733,7 +1875,7 @@ tribble(
   mutate(`Rejection probability` =
            sprintf("%.4f", `Rejection probability`)) |>
   kable(caption = paste("2x2 crossing of baseline-rate departure and time trend.",
-                        "Both factors act through the monitoring rule, so this",
+                        "Both factors feed the full pipeline, so this",
                         "crosses factors rather than isolating mechanisms."),
         align = c("l","r","r","l"))
 ```
@@ -1742,15 +1884,28 @@ tribble(
 
 ## 5.6 Rejection Probability Across the Common-Rate Grid
 
-For a constant response rate, the composite null contains every $p_e=p_c=p$.
-The first sweep therefore sets $\delta=0$ and estimates pointwise Type I error
-across that null. A second, explicitly separate sweep retains the shared
+For superiority, $H_0:p_e\le p_c$; the common-rate family $p_e=p_c=p$ is its
+equality boundary. The first sweep sets $\delta=0$ and estimates pointwise Type
+I error along that boundary. A violation at any evaluated point is enough to
+disprove uniform control, but this sweep neither establishes the least-favorable
+configuration nor evaluates the interior $p_e<p_c$. A second, explicitly
+separate sweep retains the shared
 calendar trend used in the trend-active stress scenario. In that DGM,
-$p_e(i)=p_c(i)$ for every enrollment index $i$, but RAR can make the two arms
-sample different calendar periods and the analysis remains time-constant. Those
-values are rejection probabilities under contemporaneous no treatment effect
-and analysis-model misspecification, not Type I error for a constant
-marginal-rate null.
+$p_e(i)=p_c(i)$ for every enrollment index $i$, but the arms need not sample
+the same calendar periods. With RAR disabled, the implemented rule
+`arm = (i - 1) %% 2` gives deterministic strict alternation: control occupies
+odd enrollment positions and experimental treatment occupies even positions.
+By construction, this balances arm counts at even looks and tightly interleaves
+enrollment time, but it is not exact time balance under the coded patient-level
+trend. At every
+even look, experimental patients are systematically one position later within
+each pair, so their average generating rate exceeds control by
+$\delta/(N_{\mathrm{base}}-1)=0.05/89\approx0.00056$; at the odd $n=45$ look,
+the arm counts differ by one. With RAR active, allocation additionally depends
+on accumulating data. The analysis remains time-constant in both cases. We
+therefore report these values as rejection probabilities under contemporaneous
+no treatment effect and analysis-model misspecification, not as Type I error
+for the paper's constant marginal-rate null.
 
 Both sweeps hold $\gamma^*$ at the value calibrated for the full design at
 $p=0.25$ and $\delta=0$. The comparison series merely disables SSR and RAR; it
@@ -1772,10 +1927,12 @@ belongs to this prespecified working rule and should not be generalized to all
 blinded SSR procedures.
 
 **Extended trials accrue more drift in the stress sweep.** With drift anchored
-to the planned horizon $n_{\text{base}}=90$, a trial expanded to $n=150$
-experiences total drift of $0.05\times149/89\approx0.084$, not $0.05$. A
-longer trial therefore spans more calendar time. This is part of the stated
-trend-active DGM, but it is absent from the constant-rate composite-null sweep.
+to the planned horizon $n_{\text{base}}=90$, Rule B's largest attainable final
+sample size of $n=100$ experiences terminal drift
+$0.05\times99/89\approx0.0556$, rather than $0.05$ at the planned terminal
+position. A longer trial therefore spans more calendar time. This is part of
+the stated trend-active DGM, but it is absent from the constant-rate
+equality-boundary sweep.
 
 ```{r composite-null-sweep}
 #| cache: true
@@ -1829,7 +1986,7 @@ format_null_sweep <- function(x) {
 
 format_null_sweep(composite_null_static) |>
   kable(caption = paste(
-    "Pointwise Type I error across the constant-rate composite null",
+    "Pointwise Type I error along the constant-rate equality boundary",
     "(p_e = p_c = p, delta = 0). Both series hold the full-design threshold",
     "gamma* fixed; 'SSR + RAR disabled' is an ablation, not a separately",
     "calibrated design. Monte Carlo standard errors are conditional on gamma*."),
@@ -1845,7 +2002,7 @@ format_null_sweep(contemporaneous_null_trend) |>
     align = rep("r", 7))
 ```
 
-```{r composite-null-plot, fig.width=13, fig.height=5.2, fig.cap="Pointwise rejection probability across the common-rate grid under Rule B. The left panel is the constant-rate composite null and reports Type I error; the right panel is a shared-trend contemporaneous no-effect stress scenario analyzed with a time-constant model. Grey holds the full-design threshold gamma* with SSR and RAR disabled; green is the full design. Both are fixed-threshold comparisons, not separately calibrated designs. Dashed red line = nominal alpha = 0.025."}
+```{r composite-null-plot, fig.width=13, fig.height=5.2, fig.cap="Pointwise rejection probability across the common-rate grid under Rule B. The left panel is the constant-rate equality boundary of the superiority null and reports Type I error; the right panel is a shared-trend contemporaneous no-effect stress scenario analyzed with a time-constant model. Grey holds the full-design threshold gamma* with SSR and RAR disabled; green is the full design. Both are fixed-threshold comparisons, not separately calibrated designs. Dashed red line = nominal alpha = 0.025."}
 null_plot_data <- bind_rows(
   composite_null_static |>
     mutate(DGM = "Constant rate (δ = 0): Type I error"),
@@ -2042,12 +2199,14 @@ seven-point results had been reviewed. Both sweeps seed per grid *position*
 (`seed_base + 1000*i`), so appending the new rates left $i = 1,\dots,7$
 untouched, and the seven original rows were expected to reproduce exactly.
 
-They did: all 42 reported cells across both sweeps — point estimates and Monte
-Carlo standard errors — were bit-identical before and after the extension. This
-is the reproducibility property the per-cell seeding was introduced for, and it
-is worth stating as evidence rather than as an implementation note. It means
-the two added points are pure addition: they can raise the reported maximum,
-but they cannot have perturbed any previously reported value.
+The development comparison found all 42 retained point estimates across both
+sweeps — ablation, full design, and their difference at seven rates in two
+sweeps — bit-identical before and after the extension; the MCSEs are
+deterministic functions of the corresponding proportions. The pre-extension
+render was overwritten and is not part of the release, so this comparison is
+recorded rather than independently auditable from the released files. The
+per-cell seeding nevertheless ensures that appended points cannot perturb the
+random streams used by earlier positions.
 
 Had a point been *inserted* rather than appended, every position after it would
 have shifted, silently reseeding every subsequent cell and changing numbers
@@ -2062,9 +2221,9 @@ cat(sprintf("Type I error (calibration)  = %.4f  (target: %.3f)\n",
 cat(sprintf("Type I error (fresh anchor) = %.4f  (95%% SI [%.4f, %.4f])\n",
             anchor_validation_t1e,
             anchor_validation_ci["lower"], anchor_validation_ci["upper"]))
-cat(sprintf("Rejection probability (mild departure, p=0.27) = %.4f  (+%.1f%%)\n",
+cat(sprintf("Rejection probability (+2 pp from anchor, p=0.27) = %.4f  (+%.1f%%)\n",
             t1e_mild, inflation_pct_mild))
-cat(sprintf("Rejection probability (strong departure, p=0.30) = %.4f  (+%.1f%%)\n",
+cat(sprintf("Rejection probability (+5 pp from anchor, p=0.30) = %.4f  (+%.1f%%)\n",
             t1e_primary, inflation_pct))
 cat(sprintf("Rejection probability (earlier SSR, n_ssr=30) = %.4f  (+%.1f%%)\n",
             t1e_neg, (t1e_neg - alpha)/alpha*100))
@@ -2090,8 +2249,8 @@ mcse_tbl <- tribble(
   ~Estimate,                     ~Probability,   ~N_sim,
   "Calibration (in-sample at gamma*)", t1e_at_star, N_sim_calib,
   "Independent anchor validation", anchor_validation_t1e, N_sim_sens,
-  "Mild departure + trend (p=0.27)", t1e_mild, N_sim_main,
-  "Strong departure + trend (p=0.30)", t1e_primary, N_sim_main,
+  "+2 pp from anchor + trend (p=0.27)", t1e_mild, N_sim_main,
+  "+5 pp from anchor + trend (p=0.30)", t1e_primary, N_sim_main,
   "Trend stress: earlier SSR (n = 30)", t1e_neg, N_sim_main,
   "Factorial: baseline",         t1e_f_base,     N_sim_sens,
   "Factorial: SSR only",         t1e_f_ssr,      N_sim_sens,
@@ -2172,8 +2331,8 @@ kable(int_tbl,
 | Threshold calibration | 1 |
 | Calibration-threshold bootstrap | 2 |
 | Independent anchor validation | 101 |
-| Trend stress: strong departure (p=0.30) | 2026 |
-| Trend stress: mild departure (p=0.27) | 2028 |
+| Trend stress: +5 pp from anchor (p=0.30) | 2026 |
+| Trend stress: +2 pp from anchor (p=0.27) | 2028 |
 | Earlier-SSR timing sensitivity (n<sub>SSR</sub> = 30) | 2027 |
 | Fixed-threshold factorial ablation | per cell: 300000 + 1000·k, k = 1..4 |
 | Departure × trend (2x2) | per cell: 400000 + 1000·k, k = 1..4 |
@@ -2188,7 +2347,28 @@ kable(int_tbl,
 
 ```{r session-info}
 #| code-fold: false
+# Also written to disk. Printing into the rendered HTML records the producing
+# environment nowhere a reader can reach -- the HTML is gitignored, and the MAP
+# prior is fitted through rstan, so the RBesT and Stan versions are part of the
+# result. SESSION_INFO.txt sits beside this source and is committed.
+session_record <- sub("[[:space:]]+$", "", capture.output(sessionInfo()))
+writeLines(session_record, "SESSION_INFO.txt")
 sessionInfo()
+```
+
+```{r map-prior-release-restate}
+#| cache: false
+# The invariant itself is enforced in the map-prior-preflight chunk, before any
+# expensive computation. This restates the outcome at the end of the document
+# so the release record carries it next to sessionInfo(), and re-reads the
+# committed file to confirm the object that actually fed the simulation is
+# still that file.
+map_release_check <- unname(dget(MAP_FROZEN_PATH))
+dimnames(map_release_check) <- list(c("w", "a", "b"), NULL)
+stopifnot(identical(prior_mix, map_release_check))
+cat(sprintf(
+  "Release invariant: simulation ran from %s; refit rounds to the published 4 dp reference; max |frozen - refit| = %.3e\n",
+  MAP_FROZEN_PATH, map_frozen_dev))
 ```
 
 ---
