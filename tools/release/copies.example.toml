@@ -5,9 +5,9 @@
 #     --manifest tools/release/copies.example.toml --workspace .
 
 [build]
-# pdfimages counts the three alpha masks as images in addition to the four
+# pdfimages counts four alpha masks as images in addition to the four
 # visible manuscript figures.
-expected_images = 7
+expected_images = 8
 
 [transformations]
 # Retained for compatibility with port_manuscript.py. The public release has
@@ -33,6 +33,20 @@ figure_prefix = "figures/"
 bibliography = "references"
 abstract = "env"
 canonical = true
+
+[map_prior]
+# Author-release certification that the producing machine reproduces the frozen
+# mixture the simulations run on. The render writes this file every pass and
+# deliberately does NOT stop when the refit drifts -- results come from
+# map_prior_frozen.R, so a refit difference cannot change them, and a
+# replicator on different hardware should not be blocked by a quantity that has
+# no influence on the answer. Certification is a separate question, and it is
+# this one.
+status = "simulation/map_prior_status.txt"
+# The frozen file is committed with control = c("all", "hexNumeric"), so on the
+# producing machine the refit and the file agree bit for bit. Requiring that
+# here is what makes the certification meaningful rather than nominal.
+require_bitwise = true
 
 [scope]
 release = ["README.md", "manuscript/", "simulation/"]

@@ -25,6 +25,14 @@ history:
                          content, modulo the permitted per-copy differences.
                          A copy once kept a stale abstract AND body through a
                          build that reported every expected number.
+  7. MAP PRIOR           The producing machine reproduces the frozen mixture
+                         the simulations run on. This is a RELEASE gate only.
+                         The render deliberately does not stop on it: results
+                         come from map_prior_frozen.R, so a refit difference
+                         cannot change them, and gating reproduction on a
+                         quantity that cannot affect the answer would stop a
+                         replicator for no reason. Optional -- skipped when the
+                         manifest declares no [map_prior] table.
 
 Every path comes from the manifest; nothing is resolved relative to this file.
 
@@ -417,7 +425,76 @@ def copies(m):
     return bad
 
 
-CHECKS = [sweep, figures, schematic, deck_images, builds, copies]
+# ── 7. MAP prior certification ──────────────────────────────────────────────
+def _status_fields(text):
+    """Parse the render's map_prior_status.txt. Values may contain colons."""
+    out = {}
+    for line in text.splitlines():
+        if ":" in line:
+            k, v = line.split(":", 1)
+            out[k.strip()] = v.strip()
+    return out
+
+
+def map_prior(m):
+    rule("MAP PRIOR (author-release certification)")
+    if not m.has_table("map_prior"):
+        print("  [map_prior] not declared — skipped.")
+        print("  Declare it to certify that the producing machine reproduces the")
+        print("  frozen mixture. The render never gates on this: the simulations")
+        print("  run on map_prior_frozen.R, so a refit difference cannot change a")
+        print("  result. It gates the RELEASE, not reproduction.")
+        return 0
+
+    t = m.table("map_prior")
+    rel = t["status"]
+    path = m.abs(rel)
+    if not os.path.exists(path):
+        print(f"  ! status file missing: {rel}")
+        print("    Render simulation/simulation_study.qmd first; it is written")
+        print("    by the map-prior-preflight chunk on every pass.")
+        return 1
+
+    f = _status_fields(mf.read_text(path))
+    if f.get("map_prior_status") is None and "map_prior_status v1" not in \
+            mf.read_text(path):
+        print(f"  ! {rel} is not a recognised map_prior_status file")
+        return 1
+
+    bad = 0
+    dev = f.get("max_abs_deviation", "?")
+    print(f"  frozen file        {f.get('frozen_path', '?')}")
+    print(f"  max |frozen-refit| {dev}   (bound {f.get('bound', '?')})")
+    print(f"  rendered           {f.get('rendered_utc', '?')}")
+    print(f"  under              {f.get('r_version', '?')}")
+
+    for key, label in (("rounds_to_published_4dp",
+                        "refit rounds to the published 4 dp prior table"),
+                       ("within_bound",
+                        "refit reproduces the frozen mixture within bound")):
+        if f.get(key) == "TRUE":
+            print(f"  PASS  {label}")
+        else:
+            print(f"  FAIL  {label}  ({key} = {f.get(key)})")
+            bad += 1
+
+    if t.get("require_bitwise"):
+        if f.get("bitwise_identical") == "TRUE":
+            print("  PASS  refit is bitwise identical to the frozen mixture")
+        else:
+            print("  FAIL  refit is not bitwise identical to the frozen mixture")
+            print("        regenerate with control = c(\"all\", \"hexNumeric\")")
+            bad += 1
+    else:
+        print(f"  note  bitwise_identical = {f.get('bitwise_identical', '?')} "
+              "(not required by this manifest)")
+
+    if bad == 0:
+        print("  release-certifiable on the producing machine")
+    return bad
+
+
+CHECKS = [sweep, figures, schematic, deck_images, builds, copies, map_prior]
 
 
 def main(argv=None):

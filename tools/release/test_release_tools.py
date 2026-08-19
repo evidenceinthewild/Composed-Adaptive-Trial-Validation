@@ -174,7 +174,10 @@ class TestManifest(unittest.TestCase):
         d = mf.parse_toml(mf.read_text(example))
         self.assertEqual(len(d["manuscript"]), 1)
         self.assertTrue(d["manuscript"][0]["canonical"])
-        self.assertEqual(d["build"]["expected_images"], 7)
+        self.assertEqual(d["build"]["expected_images"], 8)
+        self.assertEqual(d["map_prior"]["status"],
+                         "simulation/map_prior_status.txt")
+        self.assertTrue(d["map_prior"]["require_bitwise"])
         self.assertTrue(any(r"7\.7\s*" in p["pattern"] for p in d["retracted"]),
                         "regex escapes must survive the literal-string parser")
 
@@ -491,6 +494,108 @@ class TestConsistency(unittest.TestCase):
             code, out = run(check.main, "--manifest", f.manifest, "--only", "copies")
             self.assertEqual(code, 1)
             self.assertIn("MISSING", out)
+
+
+# ── MAP-prior author-release certification ─────────────────────────────────
+class TestMapPriorCertification(unittest.TestCase):
+    """The public render may warn; the producing-machine release must gate."""
+
+    @staticmethod
+    def declare(f, require_bitwise=True):
+        f.write(
+            "copies.toml",
+            MANIFEST + "\n[map_prior]\n"
+            'status = "map_prior_status.txt"\n'
+            f"require_bitwise = {'true' if require_bitwise else 'false'}\n",
+        )
+
+    @staticmethod
+    def write_status(f, rounds="TRUE", within="TRUE", bitwise="TRUE",
+                     header="map_prior_status v1"):
+        # r_version deliberately contains a second colon: _status_fields()
+        # must split only once and preserve the value verbatim.
+        f.write(
+            "map_prior_status.txt",
+            "\n".join([
+                header,
+                "frozen_path: map_prior_frozen.R",
+                "bound: 1e-12",
+                "max_abs_deviation: 0.00000000000000000e+00",
+                f"within_bound: {within}",
+                f"bitwise_identical: {bitwise}",
+                f"rounds_to_published_4dp: {rounds}",
+                "rendered_utc: 2026-08-14T21:00:00Z",
+                "r_version: R version: 4.6.1",
+                "",
+            ]),
+        )
+
+    def run_check(self, f):
+        return run(check.main, "--manifest", f.manifest,
+                   "--only", "map_prior")
+
+    def test_undeclared_check_is_an_explicit_skip(self):
+        with Fixture() as f:
+            code, out = self.run_check(f)
+            self.assertEqual(code, 0, out)
+            self.assertIn("not declared", out)
+            self.assertIn("gates the RELEASE, not reproduction", out)
+
+    def test_missing_status_file_blocks_release(self):
+        with Fixture() as f:
+            self.declare(f)
+            code, out = self.run_check(f)
+            self.assertEqual(code, 1)
+            self.assertIn("status file missing", out)
+
+    def test_unrecognised_status_file_blocks_release(self):
+        with Fixture() as f:
+            self.declare(f)
+            self.write_status(f, header="not the expected status format")
+            code, out = self.run_check(f)
+            self.assertEqual(code, 1)
+            self.assertIn("not a recognised map_prior_status file", out)
+
+    def test_clean_status_is_release_certifiable(self):
+        with Fixture() as f:
+            self.declare(f)
+            self.write_status(f)
+            code, out = self.run_check(f)
+            self.assertEqual(code, 0, out)
+            self.assertIn("release-certifiable", out)
+            self.assertIn("under              R version: 4.6.1", out)
+
+    def test_changed_published_rounding_blocks_release(self):
+        with Fixture() as f:
+            self.declare(f)
+            self.write_status(f, rounds="FALSE")
+            code, out = self.run_check(f)
+            self.assertEqual(code, 1)
+            self.assertIn("rounds_to_published_4dp = FALSE", out)
+
+    def test_out_of_bound_refit_blocks_release(self):
+        with Fixture() as f:
+            self.declare(f)
+            self.write_status(f, within="FALSE")
+            code, out = self.run_check(f)
+            self.assertEqual(code, 1)
+            self.assertIn("within_bound = FALSE", out)
+
+    def test_non_bitwise_refit_blocks_when_required(self):
+        with Fixture() as f:
+            self.declare(f, require_bitwise=True)
+            self.write_status(f, bitwise="FALSE")
+            code, out = self.run_check(f)
+            self.assertEqual(code, 1)
+            self.assertIn("not bitwise identical", out)
+
+    def test_non_bitwise_refit_passes_when_not_required(self):
+        with Fixture() as f:
+            self.declare(f, require_bitwise=False)
+            self.write_status(f, bitwise="FALSE")
+            code, out = self.run_check(f)
+            self.assertEqual(code, 0, out)
+            self.assertIn("not required by this manifest", out)
 
 
 # ── the checker must never write ────────────────────────────────────────────
