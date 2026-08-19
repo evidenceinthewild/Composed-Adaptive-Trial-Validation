@@ -516,37 +516,79 @@ if (!identical(map_fitted_4dp, MAP_REFERENCE_4DP)) {
        "manuscripts print that matrix: reconcile them before rendering.")
 }
 
-# LAYER 2 -- the computational object.
-# An explicit maximum absolute difference, described as one. Not identical():
-# map_prior_frozen.R is a dput() text serialisation. It is committed using
+# LAYER 2 -- the computational object. A DIAGNOSTIC, NOT A GATE.
+#
+# map_prior_frozen.R is authoritative: the simulations run on it, so a refit
+# that differs cannot move a single operating characteristic. What a deviation
+# means is narrower and worth stating exactly -- this environment does not
+# reproduce the recorded fit. That is worth knowing and worth recording. It is
+# not a reason to stop a replicator from reproducing results that do not depend
+# on it: a different BLAS could shift the gMAP fit at 1e-11 and abort an
+# hour-long render over a quantity with no influence on the answer.
+#
+# The strict requirement lives in the author-release path instead. This chunk
+# writes map_prior_status.txt on every render, and tools/release/
+# check_release.py asserts on it -- see the `map_prior` check. Certification
+# happens on the producing machine; reproduction is not gated by it.
+#
+# The comparison is an explicit maximum absolute difference, described as one.
+# Not identical(): the file is a dput() serialisation, committed with
 # control = c("all", "hexNumeric"), which round-trips the generating doubles
-# bitwise; even "digits17" can round by one ulp on some platforms. The explicit
-# bound remains a separate, portable diagnostic for a refit in a changed
-# numerical environment.
+# bitwise. "digits17" was tried and rounded two entries by one ulp.
 MAP_FROZEN_TOL <- 1e-12
 # unname() on both sides: prior_mix carries rownames because downstream code
 # indexes it as prior_mix["a", ], while prior_fitted_canon is bare. identical()
 # compares attributes, so without this the bitwise report would always be FALSE
 # for a reason that has nothing to do with the numbers.
-map_frozen_dev <- max(abs(unname(prior_mix) - prior_fitted_canon))
+map_frozen_dev     <- max(abs(unname(prior_mix) - prior_fitted_canon))
 map_frozen_bitwise <- identical(unname(prior_mix), prior_fitted_canon)
+map_frozen_ok      <- map_frozen_dev <= MAP_FROZEN_TOL
 
 cat("MAP prior preflight\n")
-cat("  layer 1  refit rounds to the published 4 dp reference: yes\n")
-cat(sprintf("  layer 2  max |frozen - refit| = %.3e  (bound %.0e)\n",
-            map_frozen_dev, MAP_FROZEN_TOL))
-cat(sprintf("  frozen file round-trips bitwise: %s\n",
-            if (map_frozen_bitwise) "yes" else
-              "NO -- regenerate with control = c(\"all\", \"hexNumeric\")"))
+cat("  layer 1  refit rounds to the published 4 dp reference: PASS  [hard gate]\n")
+cat(sprintf("  layer 2  max |frozen - refit| = %.3e  (bound %.0e)  %s  [diagnostic]\n",
+            map_frozen_dev, MAP_FROZEN_TOL,
+            if (map_frozen_ok) "within bound" else "OUT OF BOUND"))
+cat(sprintf("  bitwise identical:  %s\n", if (map_frozen_bitwise) "yes" else "no"))
+cat(sprintf("  simulation input:   %s\n", MAP_FROZEN_PATH))
+cat("  results depend on the frozen file, not on the refit\n")
 
-if (map_frozen_dev > MAP_FROZEN_TOL) {
-  cat("frozen (simulation input):\n"); print(prior_mix)
+if (!map_frozen_ok) {
+  bar <- strrep("!", 72)
+  cat("\n", bar, "\n", sep = "")
+  cat("MAP PRIOR REFIT DOES NOT REPRODUCE THE FROZEN MIXTURE\n")
+  cat(sprintf("  max |frozen - refit| = %.3e, above the %.0e bound.\n",
+              map_frozen_dev, MAP_FROZEN_TOL))
+  cat("  Results in this render are UNAFFECTED: the simulations run on\n")
+  cat(sprintf("  %s, not on the refit.\n", MAP_FROZEN_PATH))
+  cat("  What it means is that this environment does not reproduce the\n")
+  cat("  recorded fit. See SOFTWARE_ENVIRONMENT.md for the producing versions.\n")
+  cat("  A release build must not be cut from this render.\n")
+  cat(bar, "\n", sep = "")
+  cat("frozen (simulation input):\n"); print(unname(prior_mix))
   cat("refit:\n");                     print(prior_fitted_canon)
-  stop("The refitted MAP mixture differs from ", MAP_FROZEN_PATH, " by ",
-       signif(map_frozen_dev, 3), ", above the ", MAP_FROZEN_TOL, " bound. ",
-       "The simulation input has not changed -- it is the committed file -- ",
-       "but the environment no longer reproduces it.")
+  warning("MAP prior refit does not reproduce ", MAP_FROZEN_PATH,
+          " (max dev ", signif(map_frozen_dev, 3), " > ", MAP_FROZEN_TOL,
+          "). Simulation results are unaffected -- the frozen file is the ",
+          "input -- but this render is not release-certifiable.",
+          call. = FALSE, immediate. = TRUE)
 }
+
+# Machine-readable status for the author-release gate. Written every render, so
+# the release checker asserts on a fact the render itself produced rather than
+# re-deriving it without R.
+writeLines(c(
+  "map_prior_status v1",
+  sprintf("frozen_path: %s", MAP_FROZEN_PATH),
+  sprintf("bound: %.0e", MAP_FROZEN_TOL),
+  sprintf("max_abs_deviation: %.17e", map_frozen_dev),
+  sprintf("within_bound: %s", if (map_frozen_ok) "TRUE" else "FALSE"),
+  sprintf("bitwise_identical: %s", if (map_frozen_bitwise) "TRUE" else "FALSE"),
+  "rounds_to_published_4dp: TRUE",
+  sprintf("rendered_utc: %s",
+          format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")),
+  sprintf("r_version: %s", R.version.string)
+), "map_prior_status.txt")
 ```
 
 ### 5.2.2 Posterior Probability Helper
@@ -2358,17 +2400,25 @@ sessionInfo()
 
 ```{r map-prior-release-restate}
 #| cache: false
-# The invariant itself is enforced in the map-prior-preflight chunk, before any
-# expensive computation. This restates the outcome at the end of the document
-# so the release record carries it next to sessionInfo(), and re-reads the
-# committed file to confirm the object that actually fed the simulation is
-# still that file.
+# Restates the preflight outcome beside sessionInfo() so the release record
+# carries it, and re-reads the committed file to confirm the object that
+# actually fed the simulations is still that file. That last identity IS a hard
+# stop wherever it runs: if it fails, the results in this document were not
+# produced by the committed prior, which is a correctness failure rather than
+# an environment difference.
 map_release_check <- unname(dget(MAP_FROZEN_PATH))
 dimnames(map_release_check) <- list(c("w", "a", "b"), NULL)
 stopifnot(identical(prior_mix, map_release_check))
-cat(sprintf(
-  "Release invariant: simulation ran from %s; refit rounds to the published 4 dp reference; max |frozen - refit| = %.3e\n",
-  MAP_FROZEN_PATH, map_frozen_dev))
+cat(sprintf("Simulation input: %s (confirmed unchanged)\n", MAP_FROZEN_PATH))
+cat("Layer 1, published 4 dp prior table: PASS (hard gate)\n")
+cat(sprintf("Layer 2, refit reproduces the frozen mixture: %s  (max dev %.3e, bound %.0e)\n",
+            if (map_frozen_ok) "yes" else "NO -- see the preflight warning",
+            map_frozen_dev, MAP_FROZEN_TOL))
+cat(sprintf("Release-certifiable render: %s\n",
+            if (map_frozen_ok) "yes" else
+              "NO -- reproduction is valid, certification is not"))
+cat("Status written to map_prior_status.txt; asserted by ",
+    "tools/release/check_release.py --only map_prior\n", sep = "")
 ```
 
 ---
